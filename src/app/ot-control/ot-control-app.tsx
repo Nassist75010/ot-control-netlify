@@ -181,6 +181,116 @@ const presets = {
     "Divers"
   ],
   states: ["Bon état", "Abîmé", "Ouvert", "Fermé", "Humide", "Fragile", "Dangereux", "À vérifier"],
+  brands: [
+    "Sans marque",
+    "Apple",
+    "Samsung",
+    "Huawei",
+    "Xiaomi",
+    "Honor",
+    "Oppo",
+    "OnePlus",
+    "Google Pixel",
+    "Sony",
+    "Microsoft",
+    "Lenovo",
+    "HP",
+    "Dell",
+    "Asus",
+    "Acer",
+    "MSI",
+    "Nintendo",
+    "PlayStation",
+    "Xbox",
+    "Bose",
+    "JBL",
+    "Beats",
+    "Marshall",
+    "Logitech",
+    "Canon",
+    "Nikon",
+    "GoPro",
+    "Garmin",
+    "Fitbit",
+    "Louis Vuitton",
+    "Chanel",
+    "Dior",
+    "Gucci",
+    "Prada",
+    "Hermes",
+    "Saint Laurent",
+    "Yves Saint Laurent",
+    "Balenciaga",
+    "Burberry",
+    "Fendi",
+    "Givenchy",
+    "Valentino",
+    "Versace",
+    "Celine",
+    "Loewe",
+    "Longchamp",
+    "Ray-Ban",
+    "Oakley",
+    "Persol",
+    "Maui Jim",
+    "Police",
+    "Carrera",
+    "Vogue Eyewear",
+    "Oliver Peoples",
+    "Tom Ford",
+    "Guess",
+    "Emporio Armani",
+    "Giorgio Armani",
+    "Dolce & Gabbana",
+    "Michael Kors",
+    "Calvin Klein",
+    "Lacoste",
+    "Ralph Lauren",
+    "Tommy Hilfiger",
+    "Hugo Boss",
+    "Levi's",
+    "Zara",
+    "H&M",
+    "Uniqlo",
+    "Decathlon",
+    "Nike",
+    "Adidas",
+    "Puma",
+    "New Balance",
+    "Asics",
+    "Reebok",
+    "Converse",
+    "Vans",
+    "The North Face",
+    "Columbia",
+    "Moncler",
+    "Canada Goose",
+    "Napapijri",
+    "Rolex",
+    "Cartier",
+    "Omega",
+    "TAG Heuer",
+    "Casio",
+    "Seiko",
+    "Swatch",
+    "Fossil",
+    "Tissot",
+    "Pandora",
+    "Swarovski",
+    "Eastpak",
+    "Samsonite",
+    "Delsey",
+    "American Tourister",
+    "Kipling",
+    "Tumi",
+    "Rimowa",
+    "Herschel",
+    "Sephora",
+    "Nivea",
+    "L'Oreal",
+    "Maybelline",
+    "Autre"
+  ],
   documents: ["CNI", "Passeport", "Titre de séjour", "Permis", "Carte bancaire", "Carte Vitale", "Billets", "Autre"]
 };
 
@@ -367,29 +477,25 @@ export function OtControlApp() {
     rdeRef.current?.getContext("2d")?.clearRect(0, 0, rdeRef.current.width, rdeRef.current.height);
   };
 
-  const onPhotoChange = async (event: ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files ?? []);
-    setPhotos(await Promise.all(files.map(readFile)));
-  };
-
   const allowedValue = (value: string | undefined, allowed: string[]) => (value && allowed.includes(value) ? value : "");
 
-  const analyzePhotos = async () => {
+  const analyzePhotos = async (photosToAnalyze = photos) => {
     setMessage("");
-    if (!photos.length) return setMessage("Ajoutez une photo avant de lancer la reconnaissance.");
+    if (!photosToAnalyze.length) return setMessage("Ajoutez une photo avant de lancer la reconnaissance.");
     setAnalyzing(true);
     try {
       const response = await fetch("/api/analyze-photo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          photos: photos.slice(0, 3),
-          allowedTypes: presets.types,
-          allowedCategories: presets.categories,
-          allowedStates: presets.states,
-          allowedDocuments: presets.documents
-        })
-      });
+          photos: photosToAnalyze.slice(0, 3),
+        allowedTypes: presets.types,
+        allowedCategories: presets.categories,
+        allowedStates: presets.states,
+        allowedDocuments: presets.documents,
+        allowedBrands: presets.brands
+      })
+    });
       const analysis = (await response.json()) as PhotoAnalysis & { error?: string };
       if (!response.ok) throw new Error(analysis.error ?? "Analyse impossible.");
 
@@ -415,6 +521,15 @@ export function OtControlApp() {
       setMessage(error instanceof Error ? error.message : "Analyse photo impossible.");
     } finally {
       setAnalyzing(false);
+    }
+  };
+
+  const onPhotoChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    const photoData = await Promise.all(files.map(readFile));
+    setPhotos(photoData);
+    if (photoData.length > 0) {
+      await analyzePhotos(photoData);
     }
   };
 
@@ -622,11 +737,20 @@ export function OtControlApp() {
 
   return (
     <div className="space-y-6">
+      <datalist id="brand-options">
+        {presets.brands.map((brand) => (
+          <option key={brand} value={brand} />
+        ))}
+      </datalist>
       <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-primary">N&apos;ASSIST OT Control</p>
-          <h1 className="text-2xl font-semibold tracking-normal">Traçabilité des objets trouvés</h1>
-        <p className="text-sm text-muted-foreground">Création de fiches OT, photos, signatures, statuts OBOTO, impression A4, exports et historique en base de données.</p>
+        <div className="flex items-center gap-4">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/nicollin-logo.png" alt="Nicollin" className="h-16 w-16 shrink-0 rounded-sm object-contain" />
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-wide text-primary">N&apos;ASSIST OT Control</p>
+            <h1 className="text-2xl font-semibold tracking-normal">Traçabilité des objets trouvés</h1>
+            <p className="text-sm text-muted-foreground">Création de fiches OT, photos, signatures, statuts OBOTO, impression A4, exports et historique en base de données.</p>
+          </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button type="button" variant="outline" onClick={exportCsv}>
@@ -721,6 +845,29 @@ export function OtControlApp() {
                 </CardContent>
               </Card>
 
+              <Card className="shadow-none">
+                <CardHeader>
+                  <CardTitle className="text-base">Photo et reconnaissance automatique</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Field label="Prendre ou importer une photo" id="photos">
+                    <Input id="photos" type="file" accept="image/*" capture="environment" multiple onChange={onPhotoChange} />
+                  </Field>
+                  <Button type="button" variant="outline" onClick={() => analyzePhotos()} disabled={analyzing || photos.length === 0} className="w-full">
+                    <Sparkles className="mr-2 h-4 w-4" /> {analyzing ? "Analyse en cours..." : "Analyser à nouveau"}
+                  </Button>
+                  <div className="grid grid-cols-4 gap-2">
+                    {photos.map((photo) => (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img key={photo} src={photo} alt="Aperçu objet" className="h-20 w-full rounded-md border object-cover" />
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2 rounded-md bg-secondary p-3 text-sm text-muted-foreground">
+                    <Camera className="h-4 w-4" /> Après la photo, l’app propose automatiquement le type d’objet, les documents visibles et les objets dans la même souche.
+                  </div>
+                </CardContent>
+              </Card>
+
               <div className="grid gap-4 md:grid-cols-4">
                 <Select label="Lieu" value={form.lieu} values={presets.lieux} onChange={(value) => setField("lieu", value)} required />
                 <Field label="Lieu libre" id="lieuLibre">
@@ -733,7 +880,7 @@ export function OtControlApp() {
               <div className="grid gap-4 md:grid-cols-3">
                 <Select label="Couleur / état" value={form.colorState} values={presets.states} onChange={(value) => setField("colorState", value)} required />
                 <Field label="Marque" id="brand">
-                  <Input id="brand" value={form.brand} onChange={(event) => setField("brand", event.target.value)} />
+                  <Input id="brand" list="brand-options" value={form.brand} onChange={(event) => setField("brand", event.target.value)} placeholder="Choisir ou écrire une marque" />
                 </Field>
                 <Select label="Statut" value={form.status} values={Object.keys(statusLabels)} labels={statusLabels} onChange={(value) => setField("status", value as Status)} required />
               </div>
@@ -790,7 +937,13 @@ export function OtControlApp() {
                           <Input id={`itemColor-${index}`} value={item.color} onChange={(event) => updateItem(index, "color", event.target.value)} placeholder="Ex : rouge, noir" />
                         </Field>
                         <Field label="Marque" id={`itemBrand-${index}`}>
-                          <Input id={`itemBrand-${index}`} value={item.brand} onChange={(event) => updateItem(index, "brand", event.target.value)} placeholder="Ex : Nintendo, Apple" />
+                          <Input
+                            id={`itemBrand-${index}`}
+                            list="brand-options"
+                            value={item.brand}
+                            onChange={(event) => updateItem(index, "brand", event.target.value)}
+                            placeholder="Ex : Nintendo, Apple, Autre"
+                          />
                         </Field>
                       </div>
                       <div className="mt-3">
@@ -844,28 +997,6 @@ export function OtControlApp() {
                   </CardContent>
                 </Card>
 
-                <Card className="shadow-none">
-                  <CardHeader>
-                    <CardTitle className="text-base">Preuves</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <Field label="Photos obligatoires" id="photos">
-                      <Input id="photos" type="file" accept="image/*" capture="environment" multiple onChange={onPhotoChange} />
-                    </Field>
-                    <Button type="button" variant="outline" onClick={analyzePhotos} disabled={analyzing || photos.length === 0} className="w-full">
-                      <Sparkles className="mr-2 h-4 w-4" /> {analyzing ? "Analyse en cours..." : "Analyser la photo"}
-                    </Button>
-                    <div className="grid grid-cols-4 gap-2">
-                      {photos.map((photo) => (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img key={photo} src={photo} alt="Aperçu objet" className="h-20 w-full rounded-md border object-cover" />
-                      ))}
-                    </div>
-                    <div className="flex items-center gap-2 rounded-md bg-secondary p-3 text-sm text-muted-foreground">
-                      <Camera className="h-4 w-4" /> Minimum une photo de l’objet, et une photo du contenu si ouvert.
-                    </div>
-                  </CardContent>
-                </Card>
               </div>
 
               <div className="grid gap-4 lg:grid-cols-2">
@@ -1066,7 +1197,8 @@ function PrintableRecord({ record }: { record: OtRecord }) {
     <div className="space-y-5">
       <div className="flex items-start justify-between gap-4 border-b pb-4">
         <div className="flex items-center gap-3">
-          <div className="grid h-14 w-14 place-items-center border-2 border-foreground text-3xl font-black">N</div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/nicollin-logo.png" alt="Nicollin" className="h-16 w-16 rounded-sm object-contain" />
           <div>
             <h2 className="text-xl font-bold">N&apos;ASSIST OT CONTROL</h2>
             <p className="text-sm text-muted-foreground">Fiche objet trouvé - Gare du Nord</p>

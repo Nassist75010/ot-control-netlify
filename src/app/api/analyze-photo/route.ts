@@ -6,6 +6,7 @@ type AnalysisPayload = {
   allowedCategories?: string[];
   allowedStates?: string[];
   allowedDocuments?: string[];
+  allowedBrands?: string[];
 };
 
 function extractOutputText(data: unknown) {
@@ -52,6 +53,7 @@ Valeurs autorisées pour objectType: ${(body.allowedTypes ?? []).join(", ")}
 Valeurs autorisées pour category: ${(body.allowedCategories ?? []).join(", ")}
 Valeurs autorisées pour colorState: ${(body.allowedStates ?? []).join(", ")}
 Valeurs autorisées pour documents: ${(body.allowedDocuments ?? []).join(", ")}
+Marques connues possibles: ${(body.allowedBrands ?? []).join(", ")}
 
 Format JSON:
 {
