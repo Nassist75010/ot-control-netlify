@@ -1,0 +1,82 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 0 0% 99%;
+  --foreground: 240 6% 10%;
+  --card: 0 0% 100%;
+  --card-foreground: 240 6% 10%;
+  --primary: 221 83% 53%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 240 5% 96%;
+  --secondary-foreground: 240 6% 10%;
+  --muted: 240 5% 96%;
+  --muted-foreground: 240 4% 46%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 240 6% 90%;
+  --input: 240 6% 90%;
+  --ring: 221 83% 53%;
+  --radius: 0.5rem;
+}
+
+.dark {
+  --background: 240 6% 10%;
+  --foreground: 0 0% 98%;
+  --card: 240 5% 14%;
+  --card-foreground: 0 0% 98%;
+  --primary: 217 91% 60%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 240 4% 18%;
+  --secondary-foreground: 0 0% 98%;
+  --muted: 240 4% 18%;
+  --muted-foreground: 240 5% 75%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 240 4% 22%;
+  --input: 240 4% 22%;
+  --ring: 217 91% 60%;
+}
+
+* {
+  @apply border-border;
+}
+
+body {
+  @apply bg-background text-foreground antialiased;
+}
+
+input,
+select,
+textarea {
+  @apply text-base md:text-sm;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .ot-print-area,
+  .ot-print-area * {
+    visibility: visible;
+  }
+
+  .ot-print-area {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .ot-no-print {
+    display: none !important;
+  }
+
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+}

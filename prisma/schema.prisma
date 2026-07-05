@@ -1,0 +1,76 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum OtStatus {
+  BROUILLON
+  A_SAISIR_OBOTO
+  SAISI_OBOTO
+  RESTITUE
+  TRANSFERE_PREFECTURE
+  TRANSFERE_POLICE
+  ARCHIVE
+}
+
+model LostItemRecord {
+  id            String         @id
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  deposant      String
+  agentName     String
+  service       String
+  email         String?
+  lieu          String
+  trainRef      String?
+  trainOperator String?
+  trainNumber   String?
+  destination   String?
+  departureTime String?
+  platform      String?
+  carNumber     String?
+  seatNumber    String?
+  foundDate     DateTime
+  objectType    String
+  category      String
+  colorState    String
+  brand         String?
+  description   String         @db.Text
+  items         Json
+  documents     Json
+  documentName  String?
+  hasMoney      Boolean        @default(false)
+  moneyAmount   String?
+  photos        Json
+  sigDeposant   String         @db.Text
+  sigRde        String         @db.Text
+  obotoNumber   String?
+  status        OtStatus       @default(A_SAISIR_OBOTO)
+  closingReason String?
+  auditLogs     LostItemAudit[]
+
+  @@index([createdAt])
+  @@index([foundDate])
+  @@index([status])
+  @@index([obotoNumber])
+  @@index([trainOperator])
+  @@index([trainNumber])
+  @@index([destination])
+}
+
+model LostItemAudit {
+  id        String         @id @default(cuid())
+  recordId  String
+  action    String
+  userName  String
+  createdAt DateTime       @default(now())
+  record    LostItemRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+
+  @@index([recordId])
+  @@index([createdAt])
+}
