@@ -1,0 +1,2 @@
+ALTER TABLE "LostItemRecord"
+ADD COLUMN "bankCardCount" INTEGER NOT NULL DEFAULT 0;
