@@ -56,6 +56,7 @@ Règles:
 - Réponds seulement en JSON valide, sans texte autour.
 - Si plusieurs objets sont visibles dans la même souche, liste-les tous dans "items".
 - Ne lis pas les numéros complets de documents d'identité ou cartes bancaires.
+- Compte seulement le nombre de cartes bancaires visibles, sans relever leurs numéros.
 - Pour les documents, indique seulement le type probable: CNI, passeport, permis, carte bancaire, etc.
 - Si tu n'es pas sûr, laisse le champ vide ou mets "À vérifier".
 - L'agent humain corrigera toujours avant enregistrement.
@@ -79,12 +80,13 @@ Format JSON:
   "documents": [],
   "hasMoney": false,
   "moneyAmount": "",
+  "bankCardCount": 0,
   "documentName": "",
   "confidence": "faible|moyenne|forte"
 }
 `;
 
-  const model = process.env.GEMINI_VISION_MODEL ?? "gemini-2.5-flash";
+  const model = process.env.GEMINI_VISION_MODEL ?? "gemini-1.5-flash";
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
   const response = await fetch(url, {
