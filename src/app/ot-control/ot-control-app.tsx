@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Download,
   FileDown,
+  Images,
   Mail,
   Printer,
   RotateCcw,
@@ -51,6 +52,7 @@ type OtRecord = {
   documentName: string;
   hasMoney: boolean;
   moneyAmount: string;
+  bankCardCount: number;
   photos: string[];
   sigDeposant: string;
   sigRde: string;
@@ -78,6 +80,7 @@ type PhotoAnalysis = {
   documents?: string[];
   hasMoney?: boolean;
   moneyAmount?: string;
+  bankCardCount?: number;
   documentName?: string;
   confidence?: string;
 };
@@ -320,6 +323,7 @@ const emptyForm = {
   documentName: "",
   hasMoney: false,
   moneyAmount: "",
+  bankCardCount: "0",
   obotoNumber: "",
   status: "A_SAISIR_OBOTO" as Status,
   closingReason: "",
@@ -424,6 +428,8 @@ export function OtControlApp() {
   const [analyzing, setAnalyzing] = useState(false);
   const deposantRef = useRef<HTMLCanvasElement>(null);
   const rdeRef = useRef<HTMLCanvasElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const libraryInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch("/api/ot-records")
@@ -514,6 +520,7 @@ export function OtControlApp() {
         documents: analysis.documents?.filter((document) => presets.documents.includes(document)) ?? current.documents,
         hasMoney: typeof analysis.hasMoney === "boolean" ? analysis.hasMoney : current.hasMoney,
         moneyAmount: analysis.moneyAmount || current.moneyAmount,
+        bankCardCount: typeof analysis.bankCardCount === "number" ? String(Math.max(0, analysis.bankCardCount)) : current.bankCardCount,
         documentName: analysis.documentName || current.documentName
       }));
       setMessage(`Reconnaissance terminée${analysis.confidence ? `, confiance ${analysis.confidence}` : ""}. Vérifiez et corrigez avant d’enregistrer.`);
@@ -527,30 +534,21 @@ export function OtControlApp() {
   const onPhotoChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
     const photoData = await Promise.all(files.map(readFile));
-    setPhotos(photoData);
-    if (photoData.length > 0) {
-      await analyzePhotos(photoData);
+    const nextPhotos = [...photos, ...photoData].slice(0, 8);
+    setPhotos(nextPhotos);
+    event.target.value = "";
+    if (nextPhotos.length > 0) {
+      await analyzePhotos(nextPhotos);
     }
   };
 
   const insertTemplate = () => {
     const template = [
-      "Type d’objet :",
-      "Couleur / marque :",
-      "Lieu précis de trouvaille :",
-      "Transporteur :",
-      "Numéro train / RER / TER :",
-      "Destination :",
-      "Heure :",
-      "Voie / quai :",
-      "Voiture :",
-      "Place :",
-      "État de l’objet :",
-      "Contenu visible :",
-      "Documents présents :",
-      "Nom visible :",
-      "Somme d’argent :",
-      "Particularités :"
+      "Désignation de l’objet :",
+      "Détail du contenu :",
+      "Montant de la somme :",
+      "Nombre de cartes bancaires :",
+      "Autres renseignements :"
     ].join("\n");
     setField("description", form.description ? `${form.description}\n\n${template}` : template);
   };
@@ -563,9 +561,6 @@ export function OtControlApp() {
     if (isCanvasBlank(rdeRef.current)) return setMessage("La signature RDE est obligatoire.");
     if (form.hasMoney && !form.moneyAmount.trim()) return setMessage("Indiquez le montant et la devise de l’argent déclaré.");
     if (form.documents.length > 0 && !form.documentName.trim()) return setMessage("Indiquez le nom visible si un document est présent.");
-    if (!form.obotoNumber && ["SAISI_OBOTO", "RESTITUE", "ARCHIVE"].includes(form.status) && !form.closingReason.trim()) {
-      return setMessage("Ajoutez le numéro OBOTO ou un motif de non-saisie avant clôture.");
-    }
 
     setSaving(true);
     const payload = {
@@ -593,6 +588,7 @@ export function OtControlApp() {
       documentName: form.documentName,
       hasMoney: form.hasMoney,
       moneyAmount: form.moneyAmount,
+      bankCardCount: Math.max(0, Number(form.bankCardCount) || 0),
       photos,
       sigDeposant: deposantRef.current?.toDataURL() ?? "",
       sigRde: rdeRef.current?.toDataURL() ?? "",
@@ -661,7 +657,7 @@ export function OtControlApp() {
     const subject = `Objet trouvé - ${record.id}`;
     const trainLine = [record.trainOperator, record.trainNumber, record.destination, record.departureTime].filter(Boolean).join(" - ");
     const itemsText = record.items?.length ? record.items.map((item, index) => `${index + 1}. ${itemSummary(item)}`).join("\n") : "Non détaillés";
-    const body = `Bonjour,\n\nFiche OT : ${record.id}\nDate : ${new Date(record.createdAt).toLocaleString("fr-FR")}\nLieu : ${record.lieu}\nTrain : ${trainLine || "non renseigné"}\nVoie/quai : ${record.platform || "non renseigné"}\nVoiture : ${record.carNumber || "non renseignée"}\nPlace : ${record.seatNumber || "non renseignée"}\nDéposant : ${record.agentName} (${record.service})\nStatut : ${statusLabels[record.status]}\nOBOTO : ${record.obotoNumber || "à compléter"}\n\nObjets dans la souche :\n${itemsText}\n\nDescription :\n${record.description}\n\nCordialement,`;
+    const body = `Bonjour,\n\nFiche OT : ${record.id}\nDate : ${new Date(record.createdAt).toLocaleString("fr-FR")}\nLieu : ${record.lieu}\nTrain : ${trainLine || "non renseigné"}\nVoie/quai : ${record.platform || "non renseigné"}\nVoiture : ${record.carNumber || "non renseignée"}\nPlace : ${record.seatNumber || "non renseignée"}\nDéposant : ${record.agentName} (${record.service})\nStatut : ${statusLabels[record.status]}\nNombre de cartes bancaires : ${record.bankCardCount || 0}\n\nObjets dans la souche :\n${itemsText}\n\nDescription :\n${record.description}\n\nCordialement,`;
     window.location.href = `mailto:${encodeURIComponent(record.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   };
 
@@ -683,6 +679,7 @@ export function OtControlApp() {
         "Reference libre",
         "Objets meme souche",
         "Type",
+        "Nombre cartes bancaires",
         "Statut",
         "OBOTO",
         "Description"
@@ -703,6 +700,7 @@ export function OtControlApp() {
         record.trainRef,
         record.items?.map(itemSummary).join(" | "),
         record.objectType,
+        record.bankCardCount,
         statusLabels[record.status],
         record.obotoNumber,
         record.description
@@ -736,7 +734,7 @@ export function OtControlApp() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <datalist id="brand-options">
         {presets.brands.map((brand) => (
           <option key={brand} value={brand} />
@@ -769,13 +767,13 @@ export function OtControlApp() {
         <Metric label="Contrôlées" value={stats.controlled} />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_430px]">
-        <form onSubmit={submit} className="space-y-6">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <form onSubmit={submit} className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Nouvel objet trouvé</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-5">
+            <CardContent className="space-y-4">
               {message ? <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{message}</div> : null}
               {loading ? <div className="rounded-md border bg-secondary px-4 py-3 text-sm text-muted-foreground">Chargement de l’historique depuis la base de données...</div> : null}
               <div className="grid gap-4 md:grid-cols-4">
@@ -850,20 +848,24 @@ export function OtControlApp() {
                   <CardTitle className="text-base">Photo et reconnaissance automatique</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <Field label="Prendre ou importer une photo" id="photos">
-                    <Input id="photos" type="file" accept="image/*" capture="environment" multiple onChange={onPhotoChange} />
-                  </Field>
-                  <Button type="button" variant="outline" onClick={() => analyzePhotos()} disabled={analyzing || photos.length === 0} className="w-full">
-                    <Sparkles className="mr-2 h-4 w-4" /> {analyzing ? "Analyse en cours..." : "Analyser à nouveau"}
+                  <input ref={cameraInputRef} className="hidden" type="file" accept="image/*" capture="environment" onChange={onPhotoChange} />
+                  <input ref={libraryInputRef} className="hidden" type="file" accept="image/*" multiple onChange={onPhotoChange} />
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Button type="button" onClick={() => cameraInputRef.current?.click()} className="h-14">
+                      <Camera className="mr-2 h-5 w-5" /> Prendre une photo
+                    </Button>
+                    <Button type="button" variant="outline" onClick={() => libraryInputRef.current?.click()} className="h-14">
+                      <Images className="mr-2 h-5 w-5" /> Choisir dans Photos
+                    </Button>
+                  </div>
+                  <Button type="button" variant="ghost" onClick={() => analyzePhotos()} disabled={analyzing || photos.length === 0} className="w-full">
+                    <Sparkles className="mr-2 h-4 w-4" /> {analyzing ? "Analyse en cours..." : "Relancer l’analyse des photos"}
                   </Button>
                   <div className="grid grid-cols-4 gap-2">
                     {photos.map((photo) => (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img key={photo} src={photo} alt="Aperçu objet" className="h-20 w-full rounded-md border object-cover" />
                     ))}
-                  </div>
-                  <div className="flex items-center gap-2 rounded-md bg-secondary p-3 text-sm text-muted-foreground">
-                    <Camera className="h-4 w-4" /> Après la photo, l’app propose automatiquement le type d’objet, les documents visibles et les objets dans la même souche.
                   </div>
                 </CardContent>
               </Card>
@@ -877,12 +879,11 @@ export function OtControlApp() {
                 <Select label="Catégorie" value={form.category} values={presets.categories} onChange={(value) => setField("category", value)} required />
               </div>
 
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-2">
                 <Select label="Couleur / état" value={form.colorState} values={presets.states} onChange={(value) => setField("colorState", value)} required />
                 <Field label="Marque" id="brand">
                   <Input id="brand" list="brand-options" value={form.brand} onChange={(event) => setField("brand", event.target.value)} placeholder="Choisir ou écrire une marque" />
                 </Field>
-                <Select label="Statut" value={form.status} values={Object.keys(statusLabels)} labels={statusLabels} onChange={(value) => setField("status", value as Status)} required />
               </div>
 
               <div className="space-y-2">
@@ -894,7 +895,7 @@ export function OtControlApp() {
                 </div>
                 <textarea
                   id="description"
-                  className="min-h-64 w-full rounded-md border bg-background px-3 py-2 text-sm leading-6"
+                  className="min-h-40 w-full rounded-md border bg-background px-3 py-2 text-sm leading-6"
                   maxLength={6000}
                   value={form.description}
                   onChange={(event) => setField("description", event.target.value)}
@@ -994,6 +995,16 @@ export function OtControlApp() {
                     <Field label="Montant + devise" id="moneyAmount">
                       <Input id="moneyAmount" value={form.moneyAmount} onChange={(event) => setField("moneyAmount", event.target.value)} placeholder="Ex : 100 USD + 20 EUR" />
                     </Field>
+                    <Field label="Nombre de cartes bancaires" id="bankCardCount">
+                      <Input
+                        id="bankCardCount"
+                        type="number"
+                        inputMode="numeric"
+                        min="0"
+                        value={form.bankCardCount}
+                        onChange={(event) => setField("bankCardCount", event.target.value)}
+                      />
+                    </Field>
                   </CardContent>
                 </Card>
 
@@ -1008,19 +1019,21 @@ export function OtControlApp() {
                 </Field>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-[1fr_1fr_auto]">
-                <Field label="Numéro OBOTO" id="obotoNumber">
-                  <Input id="obotoNumber" value={form.obotoNumber} onChange={(event) => setField("obotoNumber", event.target.value)} />
-                </Field>
-                <Field label="Motif de non-saisie / clôture" id="closingReason">
-                  <Input id="closingReason" value={form.closingReason} onChange={(event) => setField("closingReason", event.target.value)} />
-                </Field>
-                <div className="flex items-end gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" variant="outline" onClick={() => selected && printRecord(selected)} disabled={!selected}>
+                    <Printer className="mr-2 h-4 w-4" /> Imprimer
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => selected && mailRecord(selected)} disabled={!selected?.email}>
+                    <Mail className="mr-2 h-4 w-4" /> Envoyer par mail
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2">
                   <Button type="button" variant="outline" onClick={resetForm}>
                     <RotateCcw className="mr-2 h-4 w-4" /> Effacer
                   </Button>
                   <Button type="submit" disabled={saving}>
-                    <Save className="mr-2 h-4 w-4" /> {saving ? "Enregistrement..." : "Créer"}
+                    <Save className="mr-2 h-4 w-4" /> {saving ? "Enregistrement..." : "Créer la fiche"}
                   </Button>
                 </div>
               </div>
@@ -1079,16 +1092,10 @@ export function OtControlApp() {
 
       {selected ? (
         <Card className="ot-print-area">
-          <CardHeader>
+          <CardHeader className="ot-detail-toolbar">
             <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
               <CardTitle>Fiche détail {selected.id}</CardTitle>
               <div className="flex flex-wrap gap-2 ot-no-print">
-                <Button type="button" variant="outline" onClick={() => mailRecord(selected)}>
-                  <Mail className="mr-2 h-4 w-4" /> Mail
-                </Button>
-                <Button type="button" variant="outline" onClick={() => printRecord(selected)}>
-                  <Printer className="mr-2 h-4 w-4" /> Imprimer / PDF
-                </Button>
                 <Button type="button" variant="outline" onClick={() => updateStatus(selected.id, "SAISI_OBOTO")}>
                   <CheckCircle2 className="mr-2 h-4 w-4" /> OBOTO OK
                 </Button>
@@ -1190,11 +1197,32 @@ function PrintableRecord({ record }: { record: OtRecord }) {
     ["Catégorie", record.category],
     ["État", record.colorState],
     ["Marque", record.brand || "Non renseignée"],
-    ["Statut", statusLabels[record.status]],
-    ["Numéro OBOTO", record.obotoNumber || "À compléter"]
+    ["Statut", statusLabels[record.status]]
   ];
+  const designation = [
+    [record.objectType, record.colorState, record.brand].filter(Boolean).join(" - "),
+    record.items?.length ? record.items.map((item) => itemSummary(item)).join(" ; ") : "",
+    record.description,
+    record.documents.length ? `Documents : ${record.documents.join(", ")}${record.documentName ? ` - Nom : ${record.documentName}` : ""}` : "",
+    record.hasMoney ? `Somme déclarée : ${record.moneyAmount}` : "",
+    record.bankCardCount ? `Nombre de cartes bancaires : ${record.bankCardCount}` : "",
+    [
+      record.trainOperator,
+      record.trainNumber ? `train ${record.trainNumber}` : "",
+      record.destination ? `destination ${record.destination}` : "",
+      record.departureTime ? `départ ${record.departureTime}` : "",
+      record.platform,
+      record.carNumber ? `voiture ${record.carNumber}` : "",
+      record.seatNumber ? `place ${record.seatNumber}` : ""
+    ]
+      .filter(Boolean)
+      .join(" - ")
+  ].filter(Boolean);
+  const receiptRequested = Boolean(record.email?.trim());
+
   return (
-    <div className="space-y-5">
+    <>
+      <div className="ot-screen-detail space-y-5">
       <div className="flex items-start justify-between gap-4 border-b pb-4">
         <div className="flex items-center gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1258,7 +1286,7 @@ function PrintableRecord({ record }: { record: OtRecord }) {
           <p className="mt-2 text-sm">Documents : {record.documents.length ? record.documents.join(", ") : "Aucun renseigné"}</p>
           <p className="text-sm">Nom visible : {record.documentName || "Non renseigné"}</p>
           <p className="text-sm">Argent : {record.hasMoney ? record.moneyAmount : "Non"}</p>
-          <p className="text-sm">Motif / clôture : {record.closingReason || "Néant"}</p>
+          <p className="text-sm">Cartes bancaires : {record.bankCardCount || 0}</p>
         </section>
         <section className="rounded-md border p-4">
           <h3 className="font-semibold">Journal d’audit</h3>
@@ -1292,6 +1320,58 @@ function PrintableRecord({ record }: { record: OtRecord }) {
           <img src={record.sigRde} alt="Signature RDE" className="mt-2 h-28 max-w-full object-contain" />
         </div>
       </section>
+      </div>
+
+      <article className="ot-souche-print" aria-label={`Souche de la fiche d'objet trouvé ${record.id}`}>
+        <div className="ot-souche-topbar" />
+        <header className="ot-souche-header">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/nicollin-logo.png" alt="Nicollin" className="ot-souche-logo" />
+          <div className="ot-souche-heading">
+            <h2>SOUCHE DE LA FICHE D&apos;OBJET TROUVÉ</h2>
+            <p>Gare centralisatrice Paris Nord</p>
+          </div>
+        </header>
+
+        <div className="ot-souche-fields">
+          <PrintField label="Trouvaille faite (lieu)" value={record.lieu} />
+          <PrintField label="Le" value={new Date(`${record.foundDate}T12:00:00`).toLocaleDateString("fr-FR")} short />
+          <PrintField label="Objet remis par" value={[record.agentName, record.deposant, record.service].filter(Boolean).join(" - ")} />
+          <PrintField label="À" value="Service des objets trouvés N'ASSIST - Paris Nord" />
+
+          <div className="ot-souche-receipt">
+            <span>Reçu demandé par le déposant</span>
+            <span>OUI</span><span className={`ot-checkbox ${receiptRequested ? "is-checked" : ""}`}>{receiptRequested ? "×" : ""}</span>
+            <span>NON</span><span className={`ot-checkbox ${receiptRequested ? "" : "is-checked"}`}>{receiptRequested ? "" : "×"}</span>
+          </div>
+
+          <section className="ot-souche-designation">
+            <h3><strong>Désignation</strong> de l&apos;objet, détail du contenu, montant de la somme, autres renseignements</h3>
+            <div className="ot-souche-writing-lines">
+              {Array.from({ length: 12 }, (_, index) => (
+                <div className="ot-souche-writing-line" key={index}>
+                  {index === 0 ? designation.join(" | ") : ""}
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+
+        <footer className="ot-souche-footer">
+          <div className="ot-souche-reference">Référence : {record.id}</div>
+          <div className="ot-souche-stamp-label">cachet service</div>
+          <div className="ot-souche-stamp" />
+        </footer>
+      </article>
+    </>
+  );
+}
+
+function PrintField({ label, value, short = false }: { label: string; value: string; short?: boolean }) {
+  return (
+    <div className={`ot-souche-field ${short ? "is-short" : ""}`}>
+      <strong>{label}</strong>
+      <div>{value}</div>
     </div>
   );
 }
