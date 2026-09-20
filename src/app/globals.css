@@ -53,7 +53,18 @@ textarea {
   @apply text-base md:text-sm;
 }
 
+.ot-souche-print {
+  display: none;
+}
+
 @media print {
+  html,
+  body {
+    width: 210mm;
+    min-height: 297mm;
+    background: #fff !important;
+  }
+
   body * {
     visibility: hidden;
   }
@@ -66,17 +77,205 @@ textarea {
   .ot-print-area {
     position: absolute;
     inset: 0;
-    width: 100%;
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 !important;
+    padding: 0 !important;
     border: 0 !important;
+    border-radius: 0 !important;
     box-shadow: none !important;
   }
 
-  .ot-no-print {
+  .ot-print-area > div,
+  .ot-print-area [class*="CardContent"] {
+    padding: 0 !important;
+  }
+
+  .ot-no-print,
+  .ot-detail-toolbar,
+  .ot-screen-detail {
     display: none !important;
+  }
+
+  .ot-souche-print {
+    box-sizing: border-box;
+    display: block;
+    position: relative;
+    width: 210mm;
+    height: 297mm;
+    overflow: hidden;
+    padding: 11mm 14mm 12mm;
+    color: #111 !important;
+    font-family: Arial, Helvetica, sans-serif;
+    background: #fff !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .ot-souche-print,
+  .ot-souche-print * {
+    visibility: visible;
+  }
+
+  .ot-souche-topbar {
+    height: 12mm;
+    background: #171717 !important;
+  }
+
+  .ot-souche-header {
+    display: grid;
+    grid-template-columns: 24mm 1fr;
+    gap: 8mm;
+    align-items: start;
+    margin-top: 7mm;
+  }
+
+  .ot-souche-logo {
+    width: 19mm;
+    height: 23mm;
+    object-fit: contain;
+    filter: grayscale(1) contrast(1.4);
+  }
+
+  .ot-souche-heading h2 {
+    margin: 0;
+    padding: 5mm 3mm;
+    border: 0.6mm dashed #111;
+    font-size: 17pt;
+    font-weight: 700;
+    line-height: 1.15;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .ot-souche-heading p {
+    margin: 3mm 0 0;
+    font-size: 11pt;
+    font-weight: 700;
+    text-align: right;
+  }
+
+  .ot-souche-fields {
+    margin: 22mm 14mm 0 25mm;
+  }
+
+  .ot-souche-field {
+    margin-top: 5mm;
+    font-size: 11pt;
+  }
+
+  .ot-souche-field strong {
+    display: block;
+    margin-bottom: 1.5mm;
+    font-size: 12pt;
+  }
+
+  .ot-souche-field > div {
+    min-height: 7mm;
+    padding: 0.8mm 1mm 1mm;
+    border-bottom: 0.35mm dashed #111;
+    font-size: 10.5pt;
+    font-weight: 500;
+  }
+
+  .ot-souche-field.is-short > div {
+    width: 55%;
+  }
+
+  .ot-souche-receipt {
+    display: flex;
+    align-items: center;
+    gap: 3mm;
+    margin-top: 7mm;
+    font-size: 11pt;
+  }
+
+  .ot-souche-receipt > span:first-child {
+    margin-right: 1mm;
+  }
+
+  .ot-checkbox {
+    display: inline-flex;
+    box-sizing: border-box;
+    align-items: center;
+    justify-content: center;
+    width: 7mm;
+    height: 7mm;
+    border: 0.55mm solid #111;
+    font-size: 20pt;
+    font-weight: 400;
+    line-height: 1;
+  }
+
+  .ot-checkbox.is-checked {
+    font-family: Arial, Helvetica, sans-serif;
+  }
+
+  .ot-souche-designation {
+    margin-top: 13mm;
+  }
+
+  .ot-souche-designation h3 {
+    margin: 0 0 3mm;
+    font-size: 10pt;
+    font-weight: 600;
+    line-height: 1.35;
+  }
+
+  .ot-souche-designation h3 strong {
+    font-size: 14pt;
+  }
+
+  .ot-souche-writing-lines {
+    position: relative;
+    height: 63mm;
+    overflow: hidden;
+  }
+
+  .ot-souche-writing-line {
+    box-sizing: border-box;
+    min-height: 6.9mm;
+    padding: 0 1mm;
+    border-bottom: 0.35mm dashed #111;
+    font-size: 9.3pt;
+    line-height: 6.3mm;
+    white-space: normal;
+  }
+
+  .ot-souche-footer {
+    position: absolute;
+    right: 30mm;
+    bottom: 20mm;
+    display: grid;
+    grid-template-columns: auto 55mm;
+    align-items: end;
+    column-gap: 2mm;
+  }
+
+  .ot-souche-reference {
+    position: absolute;
+    right: 0;
+    bottom: -8mm;
+    width: 55mm;
+    font-size: 7.5pt;
+    text-align: right;
+  }
+
+  .ot-souche-stamp-label {
+    padding-bottom: 1mm;
+    font-size: 8pt;
+    font-weight: 700;
+  }
+
+  .ot-souche-stamp {
+    box-sizing: border-box;
+    width: 55mm;
+    height: 29mm;
+    border: 0.45mm solid #111;
   }
 
   @page {
     size: A4;
-    margin: 14mm;
+    margin: 0;
   }
 }
