@@ -46,6 +46,7 @@ model LostItemRecord {
   documentName  String?
   hasMoney      Boolean        @default(false)
   moneyAmount   String?
+  bankCardCount Int            @default(0)
   photos        Json
   sigDeposant   String         @db.Text
   sigRde        String         @db.Text
