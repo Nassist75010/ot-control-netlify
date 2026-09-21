@@ -29,6 +29,7 @@ type OtRecord = {
   agentName: string;
   service: string;
   email: string;
+  receiptRequested: boolean;
   lieu: string;
   trainRef: string | null;
   trainOperator: string | null;
@@ -298,6 +299,7 @@ const emptyForm = {
   agentName: "",
   service: "",
   email: "",
+  receiptRequested: false,
   lieu: "",
   lieuLibre: "",
   trainRef: "",
@@ -551,6 +553,7 @@ export function OtControlApp() {
       agentName: form.agentName,
       service: form.service,
       email: form.email,
+      receiptRequested: form.receiptRequested,
       lieu: [form.lieu, form.lieuLibre].filter(Boolean).join(" - ") || "Non renseigné",
       trainRef: form.trainRef,
       trainOperator: form.trainOperator,
@@ -698,6 +701,18 @@ export function OtControlApp() {
                 <Field label="Adresse mail destinataire" id="email">
                   <Input id="email" type="email" value={form.email} onChange={(event) => setField("email", event.target.value)} placeholder="objets.trouves@..." />
                 </Field>
+              </div>
+
+              <div className="rounded-md border bg-secondary/40 p-3">
+                <Label>Reçu demandé par le déposant</Label>
+                <div className="mt-2 grid grid-cols-2 gap-2 sm:max-w-xs">
+                  <Button type="button" variant={form.receiptRequested ? "default" : "outline"} onClick={() => setField("receiptRequested", true)}>
+                    OUI
+                  </Button>
+                  <Button type="button" variant={!form.receiptRequested ? "default" : "outline"} onClick={() => setField("receiptRequested", false)}>
+                    NON
+                  </Button>
+                </div>
               </div>
 
               <Card className="shadow-none">
@@ -1088,7 +1103,7 @@ function PrintableRecord({ record }: { record: OtRecord }) {
     const chunks = line.match(/.{1,95}(?:\s|$)/g);
     return chunks?.map((chunk) => chunk.trim()).filter(Boolean) ?? [line];
   });
-  const receiptRequested = Boolean(record.email?.trim());
+  const receiptRequested = Boolean(record.receiptRequested);
 
   return (
     <>
