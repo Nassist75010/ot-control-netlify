@@ -1073,7 +1073,7 @@ function PrintableRecord({ record }: { record: OtRecord }) {
     `Déposant : ${[record.agentName, record.deposant, record.service].filter(Boolean).join(" - ")}`,
     [record.colorState, record.brand].filter(Boolean).join(" - "),
     record.category ? `Catégorie : ${record.category}` : "",
-    record.items?.length ? record.items.map((item) => itemSummary(item)).join(" ; ") : "",
+    ...(record.items?.length ? record.items.map((item, index) => `Objet ${index + 1} : ${itemSummary(item)}`) : []),
     record.description,
     record.documents.length ? `Documents : ${record.documents.join(", ")}${record.documentName ? ` - Nom : ${record.documentName}` : ""}` : "",
     record.hasMoney ? `Somme déclarée : ${record.moneyAmount}` : "",
@@ -1213,11 +1213,24 @@ function PrintableRecord({ record }: { record: OtRecord }) {
           <section className="ot-souche-designation">
             <h3><strong>Désignation</strong> de l&apos;objet, détail du contenu, montant de la somme, autres renseignements</h3>
             <div className="ot-souche-writing-lines">
-              {Array.from({ length: 12 }, (_, index) => (
+              {Array.from({ length: 10 }, (_, index) => (
                 <div className="ot-souche-writing-line" key={index}>
                   {printLines[index] ?? ""}
                 </div>
               ))}
+            </div>
+          </section>
+
+          <section className="ot-souche-signatures">
+            <div>
+              <strong>Signature déposant</strong>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={record.sigDeposant} alt="Signature déposant" />
+            </div>
+            <div>
+              <strong>Signature RDE</strong>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={record.sigRde} alt="Signature RDE" />
             </div>
           </section>
         </div>
