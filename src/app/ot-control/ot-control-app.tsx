@@ -650,11 +650,9 @@ export function OtControlApp() {
     fetch(`/api/ot-records/${encodeURIComponent(id)}`, { method: "DELETE" })
       .then((response) => {
         if (!response.ok) throw new Error("Suppression impossible.");
-        setRecords((current) => {
-          const remaining = current.filter((record) => record.id !== id);
-          if (selectedId === id) setSelectedId(remaining[0]?.id ?? null);
-          return remaining;
-        });
+        const remaining = records.filter((record) => record.id !== id);
+        setRecords(remaining);
+        if (selectedId === id) setSelectedId(remaining[0]?.id ?? null);
         setMessage("Fiche supprimée.");
       })
       .catch((error) => setMessage(error instanceof Error ? error.message : "Suppression impossible."));
