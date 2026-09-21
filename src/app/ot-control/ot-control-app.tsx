@@ -416,6 +416,7 @@ export function OtControlApp() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
+  const [pendingPrintId, setPendingPrintId] = useState<string | null>(null);
   const deposantRef = useRef<HTMLCanvasElement>(null);
   const rdeRef = useRef<HTMLCanvasElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -437,6 +438,15 @@ export function OtControlApp() {
 
   const nextId = useMemo(() => nextOtNumber(records), [records]);
   const selected = records.find((record) => record.id === selectedId) ?? records[0] ?? null;
+
+  useEffect(() => {
+    if (!pendingPrintId || selected?.id !== pendingPrintId) return;
+    const timeout = window.setTimeout(() => {
+      window.print();
+      setPendingPrintId(null);
+    }, 100);
+    return () => window.clearTimeout(timeout);
+  }, [pendingPrintId, selected?.id]);
 
   const setField = (field: keyof typeof form, value: string | boolean | string[] | OtItem[]) => setForm((current) => ({ ...current, [field]: value }));
 
@@ -619,7 +629,7 @@ export function OtControlApp() {
     } catch {
       setMessage("La fiche est imprimable, mais l’action d’impression n’a pas pu être historisée.");
     }
-    setTimeout(() => window.print(), 50);
+    setPendingPrintId(record.id);
   };
 
   const mailRecord = async (record: OtRecord) => {
@@ -640,8 +650,12 @@ export function OtControlApp() {
     fetch(`/api/ot-records/${encodeURIComponent(id)}`, { method: "DELETE" })
       .then((response) => {
         if (!response.ok) throw new Error("Suppression impossible.");
-        setRecords((current) => current.filter((record) => record.id !== id));
-        if (selectedId === id) setSelectedId(null);
+        setRecords((current) => {
+          const remaining = current.filter((record) => record.id !== id);
+          if (selectedId === id) setSelectedId(remaining[0]?.id ?? null);
+          return remaining;
+        });
+        setMessage("Fiche supprimée.");
       })
       .catch((error) => setMessage(error instanceof Error ? error.message : "Suppression impossible."));
   };
@@ -926,6 +940,40 @@ export function OtControlApp() {
           </Card>
         </form>
       </div>
+
+      <Card className="ot-no-print">
+        <CardHeader>
+          <CardTitle>Fiches enregistrées</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {records.length === 0 ? <p className="text-sm text-muted-foreground">Aucune fiche enregistrée.</p> : null}
+          {records.map((record) => (
+            <div key={record.id} className="flex flex-col gap-3 rounded-md border p-3 md:flex-row md:items-center md:justify-between">
+              <button type="button" className="text-left" onClick={() => setSelectedId(record.id)}>
+                <p className="font-semibold">{record.id}</p>
+                <p className="text-sm text-muted-foreground">
+                  {[new Date(record.createdAt).toLocaleString("fr-FR"), record.category, record.colorState, record.brand].filter(Boolean).join(" - ")}
+                </p>
+                <p className="line-clamp-1 text-sm text-muted-foreground">{record.description || "Sans description"}</p>
+              </button>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => setSelectedId(record.id)}>
+                  Voir
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => printRecord(record)}>
+                  <Printer className="mr-2 h-4 w-4" /> Imprimer
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => mailRecord(record)}>
+                  <Mail className="mr-2 h-4 w-4" /> Mail
+                </Button>
+                <Button type="button" variant="destructive" size="sm" onClick={() => deleteRecord(record.id)}>
+                  <Trash2 className="mr-2 h-4 w-4" /> Supprimer
+                </Button>
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
 
       {selected ? (
         <Card className="ot-print-area">
