@@ -1204,8 +1204,8 @@ function PrintableRecord({ record }: { record: OtRecord }) {
 
           <div className="ot-souche-receipt">
             <span>Reçu demandé par le déposant</span>
-            <span>OUI</span><span className={`ot-checkbox ${receiptRequested ? "is-checked" : ""}`}>{receiptRequested ? "×" : ""}</span>
-            <span>NON</span><span className={`ot-checkbox ${receiptRequested ? "" : "is-checked"}`}>{receiptRequested ? "" : "×"}</span>
+            <span>OUI</span><span className={`ot-checkbox ${receiptRequested ? "is-checked" : ""}`}>{receiptRequested ? "X" : ""}</span>
+            <span>NON</span><span className={`ot-checkbox ${receiptRequested ? "" : "is-checked"}`}>{receiptRequested ? "" : "X"}</span>
           </div>
 
           <section className="ot-souche-designation">
