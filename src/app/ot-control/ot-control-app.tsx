@@ -4,8 +4,6 @@ import { ChangeEvent, FormEvent, ReactNode, RefObject, useEffect, useMemo, useRe
 import {
   Camera,
   CheckCircle2,
-  Download,
-  FileDown,
   Images,
   Mail,
   Printer,
@@ -344,10 +342,6 @@ function isCanvasBlank(canvas: HTMLCanvasElement | null) {
   return !canvas.getContext("2d")?.getImageData(0, 0, canvas.width, canvas.height).data.some((value) => value !== 0);
 }
 
-function escapeCsv(value: unknown) {
-  return `"${String(value ?? "").replaceAll('"', '""')}"`;
-}
-
 function readFile(file: File) {
   return new Promise<string>((resolve) => {
     const reader = new FileReader();
@@ -447,16 +441,6 @@ export function OtControlApp() {
 
   const nextId = useMemo(() => nextOtNumber(records), [records]);
   const selected = records.find((record) => record.id === selectedId) ?? records[0] ?? null;
-
-  const stats = useMemo(
-    () => ({
-      total: records.length,
-      todo: records.filter((record) => record.status === "A_SAISIR_OBOTO").length,
-      done: records.filter((record) => record.status === "SAISI_OBOTO").length,
-      controlled: records.filter((record) => ["SAISI_OBOTO", "RESTITUE", "ARCHIVE"].includes(record.status)).length
-    }),
-    [records]
-  );
 
   const filtered = records.filter((record) => {
     const matchesQuery = JSON.stringify(record).toLowerCase().includes(query.toLowerCase());
@@ -661,67 +645,6 @@ export function OtControlApp() {
     window.location.href = `mailto:${encodeURIComponent(record.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   };
 
-  const exportCsv = () => {
-    const rows = [
-      [
-        "Numero",
-        "Creation",
-        "Deposant",
-        "Service",
-        "Lieu",
-        "Transporteur",
-        "Numero train",
-        "Destination",
-        "Heure",
-        "Voie quai",
-        "Voiture",
-        "Place",
-        "Reference libre",
-        "Objets meme souche",
-        "Type",
-        "Nombre cartes bancaires",
-        "Statut",
-        "OBOTO",
-        "Description"
-      ],
-      ...records.map((record) => [
-        record.id,
-        new Date(record.createdAt).toLocaleString("fr-FR"),
-        record.agentName,
-        record.service,
-        record.lieu,
-        record.trainOperator,
-        record.trainNumber,
-        record.destination,
-        record.departureTime,
-        record.platform,
-        record.carNumber,
-        record.seatNumber,
-        record.trainRef,
-        record.items?.map(itemSummary).join(" | "),
-        record.objectType,
-        record.bankCardCount,
-        statusLabels[record.status],
-        record.obotoNumber,
-        record.description
-      ])
-    ];
-    const blob = new Blob([rows.map((row) => row.map(escapeCsv).join(";")).join("\n")], { type: "text/csv;charset=utf-8" });
-    download(blob, `export-ot-control-${new Date().toISOString().slice(0, 10)}.csv`);
-  };
-
-  const exportJson = () => {
-    download(new Blob([JSON.stringify(records, null, 2)], { type: "application/json" }), `sauvegarde-ot-control-${Date.now()}.json`);
-  };
-
-  const download = (blob: Blob, fileName: string) => {
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = fileName;
-    link.click();
-    URL.revokeObjectURL(link.href);
-  };
-
   const deleteRecord = (id: string) => {
     if (!window.confirm("Supprimer cette fiche OT ?")) return;
     fetch(`/api/ot-records/${encodeURIComponent(id)}`, { method: "DELETE" })
@@ -740,31 +663,14 @@ export function OtControlApp() {
           <option key={brand} value={brand} />
         ))}
       </datalist>
-      <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
-        <div className="flex items-center gap-4">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/nicollin-logo.png" alt="Nicollin" className="h-16 w-16 shrink-0 rounded-sm object-contain" />
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-primary">N&apos;ASSIST OT Control</p>
-            <h1 className="text-2xl font-semibold tracking-normal">Traçabilité des objets trouvés</h1>
-            <p className="text-sm text-muted-foreground">Création de fiches OT, photos, signatures, statuts OBOTO, impression A4, exports et historique en base de données.</p>
-          </div>
+      <div className="flex items-center gap-4">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/nicollin-logo.png" alt="Nicollin" className="h-16 w-16 shrink-0 rounded-sm object-contain" />
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-wide text-primary">N&apos;ASSIST OT Control</p>
+          <h1 className="text-2xl font-semibold tracking-normal">Traçabilité des objets trouvés</h1>
+          <p className="text-sm text-muted-foreground">Création de fiches OT, photos, signatures, impression A4 et historique.</p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" onClick={exportCsv}>
-            <FileDown className="mr-2 h-4 w-4" /> CSV
-          </Button>
-          <Button type="button" variant="outline" onClick={exportJson}>
-            <Download className="mr-2 h-4 w-4" /> Sauvegarde
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-4">
-        <Metric label="Fiches" value={stats.total} />
-        <Metric label="À saisir OBOTO" value={stats.todo} tone="warning" />
-        <Metric label="Saisies OBOTO" value={stats.done} tone="success" />
-        <Metric label="Contrôlées" value={stats.controlled} />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
@@ -1114,19 +1020,6 @@ export function OtControlApp() {
         </Card>
       ) : null}
     </div>
-  );
-}
-
-function Metric({ label, value, tone }: { label: string; value: number; tone?: "warning" | "success" }) {
-  return (
-    <Card>
-      <CardContent className="pt-6">
-        <p className="text-sm text-muted-foreground">{label}</p>
-        <p className={tone === "warning" ? "text-3xl font-semibold text-amber-700" : tone === "success" ? "text-3xl font-semibold text-emerald-700" : "text-3xl font-semibold"}>
-          {value}
-        </p>
-      </CardContent>
-    </Card>
   );
 }
 
