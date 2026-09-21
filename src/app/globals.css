@@ -75,10 +75,11 @@ textarea {
   }
 
   .ot-print-area {
-    position: absolute;
+    position: fixed;
     inset: 0;
     width: 210mm;
-    min-height: 297mm;
+    height: 297mm;
+    overflow: hidden !important;
     margin: 0 !important;
     padding: 0 !important;
     border: 0 !important;
@@ -103,8 +104,8 @@ textarea {
     position: relative;
     width: 210mm;
     height: 297mm;
-    break-after: page;
-    page-break-after: always;
+    break-after: auto;
+    page-break-after: auto;
     overflow: hidden;
     padding: 11mm 14mm 12mm;
     color: #111 !important;
@@ -117,11 +118,6 @@ textarea {
   .ot-souche-print,
   .ot-souche-print * {
     visibility: visible;
-  }
-
-  .ot-souche-print:last-child {
-    break-after: auto;
-    page-break-after: auto;
   }
 
   .ot-souche-topbar {
@@ -235,7 +231,7 @@ textarea {
 
   .ot-souche-writing-lines {
     position: relative;
-    height: 63mm;
+    height: 52mm;
     overflow: hidden;
   }
 
@@ -247,6 +243,33 @@ textarea {
     font-size: 9.3pt;
     line-height: 6.3mm;
     white-space: normal;
+  }
+
+  .ot-souche-signatures {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8mm;
+    margin-top: 8mm;
+  }
+
+  .ot-souche-signatures > div {
+    min-height: 25mm;
+    border: 0.35mm dashed #111;
+    padding: 2mm;
+    font-size: 9pt;
+  }
+
+  .ot-souche-signatures strong {
+    display: block;
+    margin-bottom: 1mm;
+    font-size: 9pt;
+  }
+
+  .ot-souche-signatures img {
+    display: block;
+    width: 100%;
+    height: 17mm;
+    object-fit: contain;
   }
 
   .ot-souche-footer {
