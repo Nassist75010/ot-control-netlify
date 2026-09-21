@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, FormEvent, ReactNode, RefObject, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, FormEvent, ReactNode, RefObject, useEffect, useRef, useState } from "react";
 import {
   Camera,
   CheckCircle2,
@@ -436,7 +436,6 @@ export function OtControlApp() {
       .finally(() => setLoading(false));
   }, []);
 
-  const nextId = useMemo(() => nextOtNumber(records), [records]);
   const selected = records.find((record) => record.id === selectedId) ?? records[0] ?? null;
 
   useEffect(() => {
@@ -684,11 +683,7 @@ export function OtControlApp() {
             <CardContent className="space-y-4">
               {message ? <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{message}</div> : null}
               {loading ? <div className="rounded-md border bg-secondary px-4 py-3 text-sm text-muted-foreground">Chargement de l’historique depuis la base de données...</div> : null}
-              <div className="grid gap-4 md:grid-cols-4">
-                <div className="rounded-md border bg-secondary px-4 py-3">
-                  <p className="text-xs text-muted-foreground">Numéro automatique</p>
-                  <p className="text-lg font-bold">{nextId}</p>
-                </div>
+              <div className="grid gap-4 md:grid-cols-3">
                 <Field label="Date de trouvaille" id="foundDate">
                   <Input id="foundDate" type="date" value={form.foundDate} onChange={(event) => setField("foundDate", event.target.value)} required />
                 </Field>
@@ -1199,6 +1194,10 @@ function PrintableRecord({ record }: { record: OtRecord }) {
         </header>
 
         <div className="ot-souche-fields">
+          <div className="ot-souche-manual-number">
+            <strong>Numéro OT</strong>
+            <span />
+          </div>
           <PrintField label="Le" value={new Date(`${record.foundDate}T12:00:00`).toLocaleDateString("fr-FR")} short />
           <PrintField label="Objet remis par" value={[record.agentName, record.deposant, record.service].filter(Boolean).join(" - ")} />
           <PrintField label="À" value="Service des objets trouvés N'ASSIST - Paris Nord" />
