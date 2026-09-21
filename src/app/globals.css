@@ -212,15 +212,17 @@ textarea {
   }
 
   .ot-souche-receipt {
-    display: flex;
+    display: grid;
+    grid-template-columns: auto 9mm 7mm 10mm 7mm;
     align-items: center;
-    gap: 3mm;
+    column-gap: 2mm;
     margin-top: 4mm;
     font-size: 10pt;
+    white-space: nowrap;
   }
 
   .ot-souche-receipt > span:first-child {
-    margin-right: 1mm;
+    margin-right: 2mm;
   }
 
   .ot-checkbox {
@@ -231,8 +233,8 @@ textarea {
     width: 6mm;
     height: 6mm;
     border: 0.55mm solid #111;
-    font-size: 17pt;
-    font-weight: 400;
+    font-size: 13pt;
+    font-weight: 700;
     line-height: 1;
   }
 
