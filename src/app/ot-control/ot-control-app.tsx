@@ -1022,7 +1022,11 @@ function PrintableRecord({ record }: { record: OtRecord }) {
     ["Statut", statusLabels[record.status]]
   ];
   const designation = [
+    `Fiche : ${record.id}`,
+    `Date : ${new Date(record.createdAt).toLocaleString("fr-FR")}`,
+    `Déposant : ${[record.agentName, record.deposant, record.service].filter(Boolean).join(" - ")}`,
     [record.colorState, record.brand].filter(Boolean).join(" - "),
+    record.category ? `Catégorie : ${record.category}` : "",
     record.items?.length ? record.items.map((item) => itemSummary(item)).join(" ; ") : "",
     record.description,
     record.documents.length ? `Documents : ${record.documents.join(", ")}${record.documentName ? ` - Nom : ${record.documentName}` : ""}` : "",
@@ -1040,6 +1044,10 @@ function PrintableRecord({ record }: { record: OtRecord }) {
       .filter(Boolean)
       .join(" - ")
   ].filter(Boolean);
+  const printLines = designation.join("\n").split(/\n+/).flatMap((line) => {
+    const chunks = line.match(/.{1,95}(?:\s|$)/g);
+    return chunks?.map((chunk) => chunk.trim()).filter(Boolean) ?? [line];
+  });
   const receiptRequested = Boolean(record.email?.trim());
 
   return (
@@ -1161,7 +1169,7 @@ function PrintableRecord({ record }: { record: OtRecord }) {
             <div className="ot-souche-writing-lines">
               {Array.from({ length: 12 }, (_, index) => (
                 <div className="ot-souche-writing-line" key={index}>
-                  {index === 0 ? designation.join(" | ") : ""}
+                  {printLines[index] ?? ""}
                 </div>
               ))}
             </div>
