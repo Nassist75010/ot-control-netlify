@@ -69,6 +69,10 @@ textarea {
     visibility: hidden;
   }
 
+  body > div > :not(.ot-print-area) {
+    display: none !important;
+  }
+
   .ot-print-area,
   .ot-print-area * {
     visibility: visible;
