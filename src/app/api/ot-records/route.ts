@@ -7,6 +7,7 @@ type OtPayload = {
   agentName: string;
   service: string;
   email?: string;
+  receiptRequested?: boolean;
   lieu: string;
   trainRef?: string;
   trainOperator?: string;
@@ -103,6 +104,7 @@ export async function POST(request: Request) {
       agentName: body.agentName,
       service: body.service,
       email: body.email || null,
+      receiptRequested: Boolean(body.receiptRequested),
       lieu: body.lieu || "Non renseigné",
       trainRef: body.trainRef || null,
       trainOperator: body.trainOperator || null,
