@@ -527,6 +527,10 @@ export function OtControlApp() {
     }
   };
 
+  const removePhoto = (indexToRemove: number) => {
+    setPhotos((current) => current.filter((_, index) => index !== indexToRemove));
+  };
+
   const insertTemplate = () => {
     const template = [
       "Désignation de l’objet :",
@@ -776,10 +780,15 @@ export function OtControlApp() {
                   <Button type="button" variant="ghost" onClick={() => analyzePhotos()} disabled={analyzing || photos.length === 0} className="w-full">
                     <Sparkles className="mr-2 h-4 w-4" /> {analyzing ? "Analyse en cours..." : "Relancer l’analyse des photos"}
                   </Button>
-                  <div className="grid grid-cols-4 gap-2">
-                    {photos.map((photo) => (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img key={photo} src={photo} alt="Aperçu objet" className="h-20 w-full rounded-md border object-cover" />
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {photos.map((photo, index) => (
+                      <div key={`${photo}-${index}`} className="relative overflow-hidden rounded-md border">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={photo} alt={`Aperçu objet ${index + 1}`} className="h-24 w-full object-cover" />
+                        <Button type="button" variant="destructive" size="sm" onClick={() => removePhoto(index)} className="absolute right-1 top-1 h-7 px-2 text-xs">
+                          Supprimer
+                        </Button>
+                      </div>
                     ))}
                   </div>
                 </CardContent>
