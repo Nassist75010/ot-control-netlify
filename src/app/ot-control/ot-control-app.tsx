@@ -1068,7 +1068,6 @@ function PrintableRecord({ record }: { record: OtRecord }) {
     ["Statut", statusLabels[record.status]]
   ];
   const designation = [
-    `Fiche : ${record.id}`,
     `Date : ${new Date(record.createdAt).toLocaleString("fr-FR")}`,
     `Déposant : ${[record.agentName, record.deposant, record.service].filter(Boolean).join(" - ")}`,
     [record.colorState, record.brand].filter(Boolean).join(" - "),
@@ -1236,7 +1235,7 @@ function PrintableRecord({ record }: { record: OtRecord }) {
         </div>
 
         <footer className="ot-souche-footer">
-          <div className="ot-souche-reference">Référence : {record.id}</div>
+          <div className="ot-souche-reference">Numéro OT : <span /></div>
           <div className="ot-souche-stamp-label">cachet service</div>
           <div className="ot-souche-stamp" />
         </footer>
