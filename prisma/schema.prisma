@@ -26,6 +26,7 @@ model LostItemRecord {
   agentName     String
   service       String
   email         String?
+  receiptRequested Boolean @default(false)
   lieu          String
   trainRef      String?
   trainOperator String?
