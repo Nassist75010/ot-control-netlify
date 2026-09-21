@@ -103,6 +103,8 @@ textarea {
     position: relative;
     width: 210mm;
     height: 297mm;
+    break-after: page;
+    page-break-after: always;
     overflow: hidden;
     padding: 11mm 14mm 12mm;
     color: #111 !important;
@@ -115,6 +117,11 @@ textarea {
   .ot-souche-print,
   .ot-souche-print * {
     visibility: visible;
+  }
+
+  .ot-souche-print:last-child {
+    break-after: auto;
+    page-break-after: auto;
   }
 
   .ot-souche-topbar {
