@@ -29,6 +29,20 @@ function jsonFromText(text: string) {
   return JSON.parse(cleaned);
 }
 
+function modelCandidates() {
+  const configuredModel = process.env.GEMINI_VISION_MODEL?.trim();
+  return Array.from(
+    new Set([configuredModel, "gemini-3.1-flash-lite", "gemini-2.5-flash", "gemini-2.5-flash-lite"].filter(Boolean))
+  ) as string[];
+}
+
+function shouldTryNextModel(status: number, message: string) {
+  return (
+    (status === 400 || status === 404) &&
+    /model|not found|not supported|generatecontent|unsupported|unavailable/i.test(message)
+  );
+}
+
 export async function POST(request: Request) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -86,47 +100,60 @@ Format JSON:
 }
 `;
 
-  const model = process.env.GEMINI_VISION_MODEL ?? "gemini-1.5-flash";
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [
-        {
-          role: "user",
-          parts: [
-            { text: prompt },
-            ...photos.map((photo) => ({
-              inlineData: {
-                mimeType: photo.mimeType,
-                data: photo.data
-              }
-            }))
-          ]
-        }
-      ],
-      generationConfig: {
-        temperature: 0.1,
-        responseMimeType: "application/json"
+  const requestPayload = {
+    contents: [
+      {
+        role: "user",
+        parts: [
+          { text: prompt },
+          ...photos.map((photo) => ({
+            inlineData: {
+              mimeType: photo.mimeType,
+              data: photo.data
+            }
+          }))
+        ]
       }
-    })
-  });
+    ],
+    generationConfig: {
+      temperature: 0.1,
+      responseMimeType: "application/json"
+    }
+  };
 
-  const data = await response.json();
+  let lastModelError = "Analyse photo impossible avec Gemini.";
 
-  if (!response.ok) {
-    return NextResponse.json(
-      { error: data.error?.message ?? "Analyse photo impossible avec Gemini." },
-      { status: response.status }
-    );
+  for (const model of modelCandidates()) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(requestPayload)
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      const message = data.error?.message ?? lastModelError;
+      lastModelError = message;
+      if (shouldTryNextModel(response.status, message)) continue;
+
+      return NextResponse.json({ error: message }, { status: response.status });
+    }
+
+    try {
+      const text = data.candidates?.[0]?.content?.parts?.map((part: { text?: string }) => part.text ?? "").join("\n") ?? "";
+      return NextResponse.json(jsonFromText(text));
+    } catch {
+      return NextResponse.json(
+        { error: "Réponse Gemini illisible. Réessayez avec une photo plus nette." },
+        { status: 502 }
+      );
+    }
   }
 
-  try {
-    const text = data.candidates?.[0]?.content?.parts?.map((part: { text?: string }) => part.text ?? "").join("\n") ?? "";
-    return NextResponse.json(jsonFromText(text));
-  } catch {
-    return NextResponse.json({ error: "Réponse Gemini illisible. Réessayez avec une photo plus nette." }, { status: 502 });
-  }
+  return NextResponse.json(
+    { error: `${lastModelError} Aucun modèle Gemini disponible pour l'analyse photo.` },
+    { status: 503 }
+  );
 }
