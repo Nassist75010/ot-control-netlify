@@ -38,7 +38,7 @@ function modelCandidates() {
 
 function shouldTryNextModel(status: number, message: string) {
   return (
-    (status === 400 || status === 404) &&
+    (status === 400 || status === 404 || status === 429 || status >= 500) &&
     /model|not found|not supported|generatecontent|unsupported|unavailable/i.test(message)
   );
 }
