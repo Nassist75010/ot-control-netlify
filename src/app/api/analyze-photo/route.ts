@@ -9,31 +9,56 @@ type AnalysisPayload = {
   allowedBrands?: string[];
 };
 
-function extractOutputText(data: unknown) {
-  if (typeof data !== "object" || data === null) return "";
-  const maybe = data as { output_text?: unknown; output?: Array<{ content?: Array<{ text?: unknown; type?: string }> }> };
-  if (typeof maybe.output_text === "string") return maybe.output_text;
-  return (
-    maybe.output
-      ?.flatMap((item) => item.content ?? [])
-      .map((content) => (typeof content.text === "string" ? content.text : ""))
-      .join("\n") ?? ""
-  );
+function stripDataUrl(dataUrl: string) {
+  const match = dataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.*)$/);
+  if (!match) return null;
+  return { mimeType: match[1], data: match[2] };
 }
 
 function jsonFromText(text: string) {
-  const cleaned = text.trim().replace(/^```json\s*/i, "").replace(/```$/i, "").trim();
+  const cleaned = text
+    .trim()
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/```$/i, "")
+    .trim();
+
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  if (start >= 0 && end > start) return JSON.parse(cleaned.slice(start, end + 1));
   return JSON.parse(cleaned);
 }
 
+function modelCandidates() {
+  const configuredModel = process.env.GEMINI_VISION_MODEL?.trim();
+  return Array.from(
+    new Set([configuredModel, "gemini-3.1-flash-lite", "gemini-2.5-flash", "gemini-2.5-flash-lite"].filter(Boolean))
+  ) as string[];
+}
+
+function shouldTryNextModel(status: number, message: string) {
+  return (
+    (status === 400 || status === 404) &&
+    /model|not found|not supported|generatecontent|unsupported|unavailable/i.test(message)
+  );
+}
+
 export async function POST(request: Request) {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    return NextResponse.json({ error: "OPENAI_API_KEY manquante. Ajoutez la clé dans Netlify ou dans .env." }, { status: 503 });
+    return NextResponse.json(
+      { error: "GEMINI_API_KEY manquante. Ajoutez la clé dans Netlify > Site configuration > Environment variables." },
+      { status: 503 }
+    );
   }
 
   const body = (await request.json()) as AnalysisPayload;
-  const photos = (body.photos ?? []).filter((photo) => photo.startsWith("data:image/")).slice(0, 3);
+  const photos = (body.photos ?? [])
+    .filter((photo) => photo.startsWith("data:image/"))
+    .slice(0, 3)
+    .map(stripDataUrl)
+    .filter(Boolean) as Array<{ mimeType: string; data: string }>;
+
   if (!photos.length) {
     return NextResponse.json({ error: "Ajoutez au moins une photo avant l’analyse." }, { status: 400 });
   }
@@ -42,9 +67,10 @@ export async function POST(request: Request) {
 Tu aides une équipe objets trouvés en gare. Analyse les photos et propose une saisie, mais ne devine pas les données sensibles.
 
 Règles:
-- Réponds seulement en JSON valide.
+- Réponds seulement en JSON valide, sans texte autour.
 - Si plusieurs objets sont visibles dans la même souche, liste-les tous dans "items".
 - Ne lis pas les numéros complets de documents d'identité ou cartes bancaires.
+- Compte seulement le nombre de cartes bancaires visibles, sans relever leurs numéros.
 - Pour les documents, indique seulement le type probable: CNI, passeport, permis, carte bancaire, etc.
 - Si tu n'es pas sûr, laisse le champ vide ou mets "À vérifier".
 - L'agent humain corrigera toujours avant enregistrement.
@@ -68,6 +94,7 @@ Format JSON:
   "documents": [],
   "hasMoney": false,
   "moneyAmount": "",
+  "bankCardCount": 0,
   "documentName": "",
   "confidence": "faible|moyenne|forte"
 }
@@ -80,7 +107,7 @@ Format JSON:
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
-      model: process.env.OPENAI_VISION_MODEL,
+      model: process.env.OPENAI_VISION_MODEL ?? "gpt-4o-mini",
       input: [
         {
           role: "user",
@@ -101,9 +128,19 @@ Format JSON:
     return NextResponse.json({ error: data.error?.message ?? "Analyse photo impossible." }, { status: response.status });
   }
 
-  try {
-    return NextResponse.json(jsonFromText(extractOutputText(data)));
-  } catch {
-    return NextResponse.json({ error: "L’analyse a répondu dans un format inattendu." }, { status: 502 });
+    try {
+      const text = data.candidates?.[0]?.content?.parts?.map((part: { text?: string }) => part.text ?? "").join("\n") ?? "";
+      return NextResponse.json(jsonFromText(text));
+    } catch {
+      return NextResponse.json(
+        { error: "Réponse Gemini illisible. Réessayez avec une photo plus nette." },
+        { status: 502 }
+      );
+    }
   }
+
+  return NextResponse.json(
+    { error: `${lastModelError} Aucun modèle Gemini disponible pour l'analyse photo.` },
+    { status: 503 }
+  );
 }

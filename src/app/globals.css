@@ -53,9 +53,27 @@ textarea {
   @apply text-base md:text-sm;
 }
 
+.ot-souche-print {
+  display: none;
+}
+
 @media print {
+  html,
+  body {
+    width: auto;
+    min-height: auto;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    overflow: hidden !important;
+  }
+
   body * {
     visibility: hidden;
+  }
+
+  body > div > :not(.ot-print-area) {
+    display: none !important;
   }
 
   .ot-print-area,
@@ -64,19 +82,265 @@ textarea {
   }
 
   .ot-print-area {
-    position: absolute;
+    position: static !important;
     inset: 0;
-    width: 100%;
+    width: auto;
+    height: auto;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
     border: 0 !important;
+    border-radius: 0 !important;
     box-shadow: none !important;
   }
 
-  .ot-no-print {
+  .ot-print-area > div,
+  .ot-print-area [class*="CardContent"] {
+    padding: 0 !important;
+  }
+
+  .ot-no-print,
+  .ot-detail-toolbar,
+  .ot-screen-detail {
     display: none !important;
+  }
+
+  .ot-souche-print {
+    box-sizing: border-box;
+    display: block;
+    position: relative;
+    width: 185mm;
+    height: auto;
+    max-height: 255mm;
+    break-after: auto;
+    page-break-after: auto;
+    page-break-inside: avoid;
+    overflow: hidden;
+    margin: 0 auto !important;
+    padding: 5mm 8mm 6mm;
+    color: #111 !important;
+    font-family: Arial, Helvetica, sans-serif;
+    background: #fff !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .ot-souche-print,
+  .ot-souche-print * {
+    visibility: visible;
+  }
+
+  .ot-souche-topbar {
+    height: 8mm;
+    background: #171717 !important;
+  }
+
+  .ot-souche-header {
+    display: grid;
+    grid-template-columns: 24mm 1fr;
+    gap: 5mm;
+    align-items: start;
+    margin-top: 4mm;
+  }
+
+  .ot-souche-logo {
+    width: 17mm;
+    height: 19mm;
+    object-fit: contain;
+    filter: grayscale(1) contrast(1.4);
+  }
+
+  .ot-souche-heading h2 {
+    margin: 0;
+    padding: 3mm 3mm;
+    border: 0.6mm dashed #111;
+    font-size: 15pt;
+    font-weight: 700;
+    line-height: 1.15;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .ot-souche-heading p {
+    margin: 2mm 0 0;
+    font-size: 10pt;
+    font-weight: 700;
+    text-align: right;
+  }
+
+  .ot-souche-fields {
+    margin: 7mm 10mm 0 20mm;
+  }
+
+  .ot-souche-manual-number {
+    display: flex;
+    align-items: end;
+    gap: 4mm;
+    margin-bottom: 4mm;
+    font-size: 12pt;
+    font-weight: 700;
+  }
+
+  .ot-souche-manual-number span {
+    display: inline-block;
+    width: 70mm;
+    height: 6mm;
+    border-bottom: 0.45mm dashed #111;
+  }
+
+  .ot-souche-field {
+    margin-top: 3mm;
+    font-size: 10pt;
+  }
+
+  .ot-souche-field strong {
+    display: block;
+    margin-bottom: 1mm;
+    font-size: 10.5pt;
+  }
+
+  .ot-souche-field > div {
+    min-height: 5.5mm;
+    padding: 0.8mm 1mm 1mm;
+    border-bottom: 0.35mm dashed #111;
+    font-size: 9.5pt;
+    font-weight: 500;
+  }
+
+  .ot-souche-field.is-short > div {
+    width: 55%;
+  }
+
+  .ot-souche-receipt {
+    display: grid;
+    grid-template-columns: auto 9mm 7mm 10mm 7mm;
+    align-items: center;
+    column-gap: 2mm;
+    margin-top: 4mm;
+    font-size: 10pt;
+    white-space: nowrap;
+  }
+
+  .ot-souche-receipt > span:first-child {
+    margin-right: 2mm;
+  }
+
+  .ot-checkbox {
+    display: inline-flex;
+    box-sizing: border-box;
+    align-items: center;
+    justify-content: center;
+    width: 6mm;
+    height: 6mm;
+    border: 0.55mm solid #111;
+    font-size: 13pt;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .ot-checkbox.is-checked {
+    font-family: Arial, Helvetica, sans-serif;
+  }
+
+  .ot-souche-designation {
+    margin-top: 7mm;
+  }
+
+  .ot-souche-designation h3 {
+    margin: 0 0 2mm;
+    font-size: 9pt;
+    font-weight: 600;
+    line-height: 1.35;
+  }
+
+  .ot-souche-designation h3 strong {
+    font-size: 12pt;
+  }
+
+  .ot-souche-writing-lines {
+    position: relative;
+    height: 43mm;
+    overflow: hidden;
+  }
+
+  .ot-souche-writing-line {
+    box-sizing: border-box;
+    min-height: 5.6mm;
+    padding: 0 1mm;
+    border-bottom: 0.35mm dashed #111;
+    font-size: 8.5pt;
+    line-height: 5.2mm;
+    white-space: normal;
+  }
+
+  .ot-souche-signatures {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6mm;
+    margin-top: 5mm;
+  }
+
+  .ot-souche-signatures > div {
+    min-height: 18mm;
+    border: 0.35mm dashed #111;
+    padding: 2mm;
+    font-size: 9pt;
+  }
+
+  .ot-souche-signatures strong {
+    display: block;
+    margin-bottom: 1mm;
+    font-size: 9pt;
+  }
+
+  .ot-souche-signatures img {
+    display: block;
+    width: 100%;
+    height: 11mm;
+    object-fit: contain;
+  }
+
+  .ot-souche-footer {
+    position: static;
+    margin-top: 5mm;
+    margin-left: auto;
+    width: 55mm;
+    display: grid;
+    grid-template-columns: auto 34mm;
+    align-items: end;
+    column-gap: 2mm;
+  }
+
+  .ot-souche-reference {
+    grid-column: 1 / -1;
+    position: static;
+    width: auto;
+    margin-top: 2mm;
+    font-size: 7.5pt;
+    text-align: right;
+  }
+
+  .ot-souche-reference span {
+    display: inline-block;
+    width: 22mm;
+    border-bottom: 0.3mm dashed #111;
+  }
+
+  .ot-souche-stamp-label {
+    padding-bottom: 1mm;
+    font-size: 8pt;
+    font-weight: 700;
+  }
+
+  .ot-souche-stamp {
+    box-sizing: border-box;
+    width: 34mm;
+    height: 17mm;
+    border: 0.45mm solid #111;
   }
 
   @page {
     size: A4;
-    margin: 14mm;
+    margin: 0;
   }
 }

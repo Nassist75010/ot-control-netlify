@@ -1,16 +1,14 @@
 "use client";
 
-import { ChangeEvent, FormEvent, ReactNode, RefObject, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, FormEvent, ReactNode, RefObject, useEffect, useRef, useState } from "react";
 import {
   Camera,
   CheckCircle2,
-  Download,
-  FileDown,
+  Images,
   Mail,
   Printer,
   RotateCcw,
   Save,
-  Search,
   ShieldCheck,
   Plus,
   Sparkles,
@@ -31,6 +29,7 @@ type OtRecord = {
   agentName: string;
   service: string;
   email: string;
+  receiptRequested: boolean;
   lieu: string;
   trainRef: string | null;
   trainOperator: string | null;
@@ -51,6 +50,7 @@ type OtRecord = {
   documentName: string;
   hasMoney: boolean;
   moneyAmount: string;
+  bankCardCount: number;
   photos: string[];
   sigDeposant: string;
   sigRde: string;
@@ -78,6 +78,7 @@ type PhotoAnalysis = {
   documents?: string[];
   hasMoney?: boolean;
   moneyAmount?: string;
+  bankCardCount?: number;
   documentName?: string;
   confidence?: string;
 };
@@ -95,7 +96,6 @@ const statusLabels: Record<Status, string> = {
 const presets = {
   deposants: ["SNCF", "Eurostar", "Police ferroviaire", "SUGE", "Client", "Agent conciergerie", "Autre"],
   services: ["SNCF", "Eurostar", "TER", "TGV", "Transilien", "Sécurité", "Nettoyage", "Conciergerie", "Autre"],
-  lieux: ["Voie", "Train", "Salle d’attente", "Local PSH", "File taxi", "Boutique", "Quai", "Toilette", "Autre"],
   operators: ["OUIGO", "Eurostar", "TGV INOUI", "TER", "RER B", "RER D", "Transilien H", "Transilien K", "Thalys / Eurostar rouge", "Autre"],
   destinations: [
     "Lille Flandres",
@@ -180,7 +180,7 @@ const presets = {
     "Objet personnel",
     "Divers"
   ],
-  states: ["Bon état", "Abîmé", "Ouvert", "Fermé", "Humide", "Fragile", "Dangereux", "À vérifier"],
+  colors: ["Noir", "Blanc", "Gris", "Bleu", "Rouge", "Vert", "Jaune", "Orange", "Marron", "Beige", "Rose", "Violet", "Multicolore", "Transparent", "Autre"],
   brands: [
     "Sans marque",
     "Apple",
@@ -299,6 +299,7 @@ const emptyForm = {
   agentName: "",
   service: "",
   email: "",
+  receiptRequested: false,
   lieu: "",
   lieuLibre: "",
   trainRef: "",
@@ -320,6 +321,7 @@ const emptyForm = {
   documentName: "",
   hasMoney: false,
   moneyAmount: "",
+  bankCardCount: "0",
   obotoNumber: "",
   status: "A_SAISIR_OBOTO" as Status,
   closingReason: "",
@@ -338,10 +340,6 @@ function nextOtNumber(records: OtRecord[]) {
 function isCanvasBlank(canvas: HTMLCanvasElement | null) {
   if (!canvas) return true;
   return !canvas.getContext("2d")?.getImageData(0, 0, canvas.width, canvas.height).data.some((value) => value !== 0);
-}
-
-function escapeCsv(value: unknown) {
-  return `"${String(value ?? "").replaceAll('"', '""')}"`;
 }
 
 function readFile(file: File) {
@@ -415,15 +413,16 @@ export function OtControlApp() {
   const [records, setRecords] = useState<OtRecord[]>([]);
   const [form, setForm] = useState(emptyForm);
   const [photos, setPhotos] = useState<string[]>([]);
-  const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"TOUS" | Status>("TOUS");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
+  const [pendingPrintId, setPendingPrintId] = useState<string | null>(null);
   const deposantRef = useRef<HTMLCanvasElement>(null);
   const rdeRef = useRef<HTMLCanvasElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const libraryInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch("/api/ot-records")
@@ -439,24 +438,16 @@ export function OtControlApp() {
       .finally(() => setLoading(false));
   }, []);
 
-  const nextId = useMemo(() => nextOtNumber(records), [records]);
   const selected = records.find((record) => record.id === selectedId) ?? records[0] ?? null;
 
-  const stats = useMemo(
-    () => ({
-      total: records.length,
-      todo: records.filter((record) => record.status === "A_SAISIR_OBOTO").length,
-      done: records.filter((record) => record.status === "SAISI_OBOTO").length,
-      controlled: records.filter((record) => ["SAISI_OBOTO", "RESTITUE", "ARCHIVE"].includes(record.status)).length
-    }),
-    [records]
-  );
-
-  const filtered = records.filter((record) => {
-    const matchesQuery = JSON.stringify(record).toLowerCase().includes(query.toLowerCase());
-    const matchesStatus = statusFilter === "TOUS" || record.status === statusFilter;
-    return matchesQuery && matchesStatus;
-  });
+  useEffect(() => {
+    if (!pendingPrintId || selected?.id !== pendingPrintId) return;
+    const timeout = window.setTimeout(() => {
+      window.print();
+      setPendingPrintId(null);
+    }, 100);
+    return () => window.clearTimeout(timeout);
+  }, [pendingPrintId, selected?.id]);
 
   const setField = (field: keyof typeof form, value: string | boolean | string[] | OtItem[]) => setForm((current) => ({ ...current, [field]: value }));
 
@@ -491,7 +482,7 @@ export function OtControlApp() {
           photos: photosToAnalyze.slice(0, 3),
         allowedTypes: presets.types,
         allowedCategories: presets.categories,
-        allowedStates: presets.states,
+        allowedStates: presets.colors,
         allowedDocuments: presets.documents,
         allowedBrands: presets.brands
       })
@@ -503,7 +494,7 @@ export function OtControlApp() {
         ...current,
         objectType: allowedValue(analysis.objectType, presets.types) || current.objectType,
         category: allowedValue(analysis.category, presets.categories) || current.category,
-        colorState: allowedValue(analysis.colorState, presets.states) || current.colorState,
+        colorState: allowedValue(analysis.colorState, presets.colors) || current.colorState,
         brand: analysis.brand || current.brand,
         description: analysis.description
           ? current.description
@@ -514,6 +505,7 @@ export function OtControlApp() {
         documents: analysis.documents?.filter((document) => presets.documents.includes(document)) ?? current.documents,
         hasMoney: typeof analysis.hasMoney === "boolean" ? analysis.hasMoney : current.hasMoney,
         moneyAmount: analysis.moneyAmount || current.moneyAmount,
+        bankCardCount: typeof analysis.bankCardCount === "number" ? String(Math.max(0, analysis.bankCardCount)) : current.bankCardCount,
         documentName: analysis.documentName || current.documentName
       }));
       setMessage(`Reconnaissance terminée${analysis.confidence ? `, confiance ${analysis.confidence}` : ""}. Vérifiez et corrigez avant d’enregistrer.`);
@@ -527,30 +519,25 @@ export function OtControlApp() {
   const onPhotoChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
     const photoData = await Promise.all(files.map(readFile));
-    setPhotos(photoData);
-    if (photoData.length > 0) {
-      await analyzePhotos(photoData);
+    const nextPhotos = [...photos, ...photoData].slice(0, 8);
+    setPhotos(nextPhotos);
+    event.target.value = "";
+    if (nextPhotos.length > 0) {
+      await analyzePhotos(nextPhotos);
     }
+  };
+
+  const removePhoto = (indexToRemove: number) => {
+    setPhotos((current) => current.filter((_, index) => index !== indexToRemove));
   };
 
   const insertTemplate = () => {
     const template = [
-      "Type d’objet :",
-      "Couleur / marque :",
-      "Lieu précis de trouvaille :",
-      "Transporteur :",
-      "Numéro train / RER / TER :",
-      "Destination :",
-      "Heure :",
-      "Voie / quai :",
-      "Voiture :",
-      "Place :",
-      "État de l’objet :",
-      "Contenu visible :",
-      "Documents présents :",
-      "Nom visible :",
-      "Somme d’argent :",
-      "Particularités :"
+      "Désignation de l’objet :",
+      "Détail du contenu :",
+      "Montant de la somme :",
+      "Nombre de cartes bancaires :",
+      "Autres renseignements :"
     ].join("\n");
     setField("description", form.description ? `${form.description}\n\n${template}` : template);
   };
@@ -563,9 +550,6 @@ export function OtControlApp() {
     if (isCanvasBlank(rdeRef.current)) return setMessage("La signature RDE est obligatoire.");
     if (form.hasMoney && !form.moneyAmount.trim()) return setMessage("Indiquez le montant et la devise de l’argent déclaré.");
     if (form.documents.length > 0 && !form.documentName.trim()) return setMessage("Indiquez le nom visible si un document est présent.");
-    if (!form.obotoNumber && ["SAISI_OBOTO", "RESTITUE", "ARCHIVE"].includes(form.status) && !form.closingReason.trim()) {
-      return setMessage("Ajoutez le numéro OBOTO ou un motif de non-saisie avant clôture.");
-    }
 
     setSaving(true);
     const payload = {
@@ -573,7 +557,8 @@ export function OtControlApp() {
       agentName: form.agentName,
       service: form.service,
       email: form.email,
-      lieu: [form.lieu, form.lieuLibre].filter(Boolean).join(" - "),
+      receiptRequested: form.receiptRequested,
+      lieu: [form.lieu, form.lieuLibre].filter(Boolean).join(" - ") || "Non renseigné",
       trainRef: form.trainRef,
       trainOperator: form.trainOperator,
       trainNumber: form.trainNumber,
@@ -583,7 +568,7 @@ export function OtControlApp() {
       carNumber: form.carNumber,
       seatNumber: form.seatNumber,
       foundDate: form.foundDate,
-      objectType: form.objectType,
+      objectType: form.objectType || "Objet trouvé",
       category: form.category,
       colorState: form.colorState,
       brand: form.brand,
@@ -593,6 +578,7 @@ export function OtControlApp() {
       documentName: form.documentName,
       hasMoney: form.hasMoney,
       moneyAmount: form.moneyAmount,
+      bankCardCount: Math.max(0, Number(form.bankCardCount) || 0),
       photos,
       sigDeposant: deposantRef.current?.toDataURL() ?? "",
       sigRde: rdeRef.current?.toDataURL() ?? "",
@@ -649,7 +635,7 @@ export function OtControlApp() {
     } catch {
       setMessage("La fiche est imprimable, mais l’action d’impression n’a pas pu être historisée.");
     }
-    setTimeout(() => window.print(), 50);
+    setPendingPrintId(record.id);
   };
 
   const mailRecord = async (record: OtRecord) => {
@@ -661,67 +647,8 @@ export function OtControlApp() {
     const subject = `Objet trouvé - ${record.id}`;
     const trainLine = [record.trainOperator, record.trainNumber, record.destination, record.departureTime].filter(Boolean).join(" - ");
     const itemsText = record.items?.length ? record.items.map((item, index) => `${index + 1}. ${itemSummary(item)}`).join("\n") : "Non détaillés";
-    const body = `Bonjour,\n\nFiche OT : ${record.id}\nDate : ${new Date(record.createdAt).toLocaleString("fr-FR")}\nLieu : ${record.lieu}\nTrain : ${trainLine || "non renseigné"}\nVoie/quai : ${record.platform || "non renseigné"}\nVoiture : ${record.carNumber || "non renseignée"}\nPlace : ${record.seatNumber || "non renseignée"}\nDéposant : ${record.agentName} (${record.service})\nStatut : ${statusLabels[record.status]}\nOBOTO : ${record.obotoNumber || "à compléter"}\n\nObjets dans la souche :\n${itemsText}\n\nDescription :\n${record.description}\n\nCordialement,`;
+    const body = `Bonjour,\n\nFiche OT : ${record.id}\nDate : ${new Date(record.createdAt).toLocaleString("fr-FR")}\nTrain : ${trainLine || "non renseigné"}\nVoie/quai : ${record.platform || "non renseigné"}\nVoiture : ${record.carNumber || "non renseignée"}\nPlace : ${record.seatNumber || "non renseignée"}\nDéposant : ${record.agentName} (${record.service})\nStatut : ${statusLabels[record.status]}\nNombre de cartes bancaires : ${record.bankCardCount || 0}\n\nObjets dans la souche :\n${itemsText}\n\nDescription :\n${record.description}\n\nCordialement,`;
     window.location.href = `mailto:${encodeURIComponent(record.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-  };
-
-  const exportCsv = () => {
-    const rows = [
-      [
-        "Numero",
-        "Creation",
-        "Deposant",
-        "Service",
-        "Lieu",
-        "Transporteur",
-        "Numero train",
-        "Destination",
-        "Heure",
-        "Voie quai",
-        "Voiture",
-        "Place",
-        "Reference libre",
-        "Objets meme souche",
-        "Type",
-        "Statut",
-        "OBOTO",
-        "Description"
-      ],
-      ...records.map((record) => [
-        record.id,
-        new Date(record.createdAt).toLocaleString("fr-FR"),
-        record.agentName,
-        record.service,
-        record.lieu,
-        record.trainOperator,
-        record.trainNumber,
-        record.destination,
-        record.departureTime,
-        record.platform,
-        record.carNumber,
-        record.seatNumber,
-        record.trainRef,
-        record.items?.map(itemSummary).join(" | "),
-        record.objectType,
-        statusLabels[record.status],
-        record.obotoNumber,
-        record.description
-      ])
-    ];
-    const blob = new Blob([rows.map((row) => row.map(escapeCsv).join(";")).join("\n")], { type: "text/csv;charset=utf-8" });
-    download(blob, `export-ot-control-${new Date().toISOString().slice(0, 10)}.csv`);
-  };
-
-  const exportJson = () => {
-    download(new Blob([JSON.stringify(records, null, 2)], { type: "application/json" }), `sauvegarde-ot-control-${Date.now()}.json`);
-  };
-
-  const download = (blob: Blob, fileName: string) => {
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = fileName;
-    link.click();
-    URL.revokeObjectURL(link.href);
   };
 
   const deleteRecord = (id: string) => {
@@ -729,60 +656,41 @@ export function OtControlApp() {
     fetch(`/api/ot-records/${encodeURIComponent(id)}`, { method: "DELETE" })
       .then((response) => {
         if (!response.ok) throw new Error("Suppression impossible.");
-        setRecords((current) => current.filter((record) => record.id !== id));
-        if (selectedId === id) setSelectedId(null);
+        const remaining = records.filter((record) => record.id !== id);
+        setRecords(remaining);
+        if (selectedId === id) setSelectedId(remaining[0]?.id ?? null);
+        setMessage("Fiche supprimée.");
       })
       .catch((error) => setMessage(error instanceof Error ? error.message : "Suppression impossible."));
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <datalist id="brand-options">
         {presets.brands.map((brand) => (
           <option key={brand} value={brand} />
         ))}
       </datalist>
-      <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
-        <div className="flex items-center gap-4">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/nicollin-logo.png" alt="Nicollin" className="h-16 w-16 shrink-0 rounded-sm object-contain" />
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-primary">N&apos;ASSIST OT Control</p>
-            <h1 className="text-2xl font-semibold tracking-normal">Traçabilité des objets trouvés</h1>
-            <p className="text-sm text-muted-foreground">Création de fiches OT, photos, signatures, statuts OBOTO, impression A4, exports et historique en base de données.</p>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" onClick={exportCsv}>
-            <FileDown className="mr-2 h-4 w-4" /> CSV
-          </Button>
-          <Button type="button" variant="outline" onClick={exportJson}>
-            <Download className="mr-2 h-4 w-4" /> Sauvegarde
-          </Button>
+      <div className="flex items-center gap-4">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/nicollin-logo.png" alt="Nicollin" className="h-16 w-16 shrink-0 rounded-sm object-contain" />
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-wide text-primary">N&apos;ASSIST OT Control</p>
+          <h1 className="text-2xl font-semibold tracking-normal">Traçabilité des objets trouvés</h1>
+          <p className="text-sm text-muted-foreground">Photos, signatures, impression A4 et envoi par mail.</p>
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
-        <Metric label="Fiches" value={stats.total} />
-        <Metric label="À saisir OBOTO" value={stats.todo} tone="warning" />
-        <Metric label="Saisies OBOTO" value={stats.done} tone="success" />
-        <Metric label="Contrôlées" value={stats.controlled} />
-      </div>
-
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_430px]">
-        <form onSubmit={submit} className="space-y-6">
+      <div className="grid gap-4">
+        <form onSubmit={submit} className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Nouvel objet trouvé</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-5">
+            <CardContent className="space-y-4">
               {message ? <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{message}</div> : null}
               {loading ? <div className="rounded-md border bg-secondary px-4 py-3 text-sm text-muted-foreground">Chargement de l’historique depuis la base de données...</div> : null}
-              <div className="grid gap-4 md:grid-cols-4">
-                <div className="rounded-md border bg-secondary px-4 py-3">
-                  <p className="text-xs text-muted-foreground">Numéro automatique</p>
-                  <p className="text-lg font-bold">{nextId}</p>
-                </div>
+              <div className="grid gap-4 md:grid-cols-3">
                 <Field label="Date de trouvaille" id="foundDate">
                   <Input id="foundDate" type="date" value={form.foundDate} onChange={(event) => setField("foundDate", event.target.value)} required />
                 </Field>
@@ -790,16 +698,25 @@ export function OtControlApp() {
                 <Select label="Service / entreprise" value={form.service} values={presets.services} onChange={(value) => setField("service", value)} required />
               </div>
 
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-2">
                 <Field label="Nom et prénom agent" id="agentName">
                   <Input id="agentName" value={form.agentName} onChange={(event) => setField("agentName", event.target.value)} required />
                 </Field>
                 <Field label="Adresse mail destinataire" id="email">
                   <Input id="email" type="email" value={form.email} onChange={(event) => setField("email", event.target.value)} placeholder="objets.trouves@..." />
                 </Field>
-                <Field label="Référence libre" id="trainRef">
-                  <Input id="trainRef" value={form.trainRef} onChange={(event) => setField("trainRef", event.target.value)} placeholder="Info donnée par l’agent" />
-                </Field>
+              </div>
+
+              <div className="rounded-md border bg-secondary/40 p-3">
+                <Label>Reçu demandé par le déposant</Label>
+                <div className="mt-2 grid grid-cols-2 gap-2 sm:max-w-xs">
+                  <Button type="button" variant={form.receiptRequested ? "default" : "outline"} onClick={() => setField("receiptRequested", true)}>
+                    OUI
+                  </Button>
+                  <Button type="button" variant={!form.receiptRequested ? "default" : "outline"} onClick={() => setField("receiptRequested", false)}>
+                    NON
+                  </Button>
+                </div>
               </div>
 
               <Card className="shadow-none">
@@ -850,39 +767,39 @@ export function OtControlApp() {
                   <CardTitle className="text-base">Photo et reconnaissance automatique</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <Field label="Prendre ou importer une photo" id="photos">
-                    <Input id="photos" type="file" accept="image/*" capture="environment" multiple onChange={onPhotoChange} />
-                  </Field>
-                  <Button type="button" variant="outline" onClick={() => analyzePhotos()} disabled={analyzing || photos.length === 0} className="w-full">
-                    <Sparkles className="mr-2 h-4 w-4" /> {analyzing ? "Analyse en cours..." : "Analyser à nouveau"}
-                  </Button>
-                  <div className="grid grid-cols-4 gap-2">
-                    {photos.map((photo) => (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img key={photo} src={photo} alt="Aperçu objet" className="h-20 w-full rounded-md border object-cover" />
-                    ))}
+                  <input ref={cameraInputRef} className="hidden" type="file" accept="image/*" capture="environment" onChange={onPhotoChange} />
+                  <input ref={libraryInputRef} className="hidden" type="file" accept="image/*" multiple onChange={onPhotoChange} />
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Button type="button" onClick={() => cameraInputRef.current?.click()} className="h-14">
+                      <Camera className="mr-2 h-5 w-5" /> Prendre une photo
+                    </Button>
+                    <Button type="button" variant="outline" onClick={() => libraryInputRef.current?.click()} className="h-14">
+                      <Images className="mr-2 h-5 w-5" /> Choisir dans Photos
+                    </Button>
                   </div>
-                  <div className="flex items-center gap-2 rounded-md bg-secondary p-3 text-sm text-muted-foreground">
-                    <Camera className="h-4 w-4" /> Après la photo, l’app propose automatiquement le type d’objet, les documents visibles et les objets dans la même souche.
+                  <Button type="button" variant="ghost" onClick={() => analyzePhotos()} disabled={analyzing || photos.length === 0} className="w-full">
+                    <Sparkles className="mr-2 h-4 w-4" /> {analyzing ? "Analyse en cours..." : "Relancer l’analyse des photos"}
+                  </Button>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {photos.map((photo, index) => (
+                      <div key={`${photo}-${index}`} className="relative overflow-hidden rounded-md border">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={photo} alt={`Aperçu objet ${index + 1}`} className="h-24 w-full object-cover" />
+                        <Button type="button" variant="destructive" size="sm" onClick={() => removePhoto(index)} className="absolute right-1 top-1 h-7 px-2 text-xs">
+                          Supprimer
+                        </Button>
+                      </div>
+                    ))}
                   </div>
                 </CardContent>
               </Card>
 
-              <div className="grid gap-4 md:grid-cols-4">
-                <Select label="Lieu" value={form.lieu} values={presets.lieux} onChange={(value) => setField("lieu", value)} required />
-                <Field label="Lieu libre" id="lieuLibre">
-                  <Input id="lieuLibre" value={form.lieuLibre} onChange={(event) => setField("lieuLibre", event.target.value)} placeholder="Précision utile" />
-                </Field>
-                <Select label="Type d’objet" value={form.objectType} values={presets.types} onChange={(value) => setField("objectType", value)} required />
-                <Select label="Catégorie" value={form.category} values={presets.categories} onChange={(value) => setField("category", value)} required />
-              </div>
-
               <div className="grid gap-4 md:grid-cols-3">
-                <Select label="Couleur / état" value={form.colorState} values={presets.states} onChange={(value) => setField("colorState", value)} required />
+                <Select label="Catégorie" value={form.category} values={presets.categories} onChange={(value) => setField("category", value)} required />
+                <Select label="Couleur" value={form.colorState} values={presets.colors} onChange={(value) => setField("colorState", value)} required />
                 <Field label="Marque" id="brand">
                   <Input id="brand" list="brand-options" value={form.brand} onChange={(event) => setField("brand", event.target.value)} placeholder="Choisir ou écrire une marque" />
                 </Field>
-                <Select label="Statut" value={form.status} values={Object.keys(statusLabels)} labels={statusLabels} onChange={(value) => setField("status", value as Status)} required />
               </div>
 
               <div className="space-y-2">
@@ -894,7 +811,7 @@ export function OtControlApp() {
                 </div>
                 <textarea
                   id="description"
-                  className="min-h-64 w-full rounded-md border bg-background px-3 py-2 text-sm leading-6"
+                  className="min-h-40 w-full rounded-md border bg-background px-3 py-2 text-sm leading-6"
                   maxLength={6000}
                   value={form.description}
                   onChange={(event) => setField("description", event.target.value)}
@@ -994,6 +911,16 @@ export function OtControlApp() {
                     <Field label="Montant + devise" id="moneyAmount">
                       <Input id="moneyAmount" value={form.moneyAmount} onChange={(event) => setField("moneyAmount", event.target.value)} placeholder="Ex : 100 USD + 20 EUR" />
                     </Field>
+                    <Field label="Nombre de cartes bancaires" id="bankCardCount">
+                      <Input
+                        id="bankCardCount"
+                        type="number"
+                        inputMode="numeric"
+                        min="0"
+                        value={form.bankCardCount}
+                        onChange={(event) => setField("bankCardCount", event.target.value)}
+                      />
+                    </Field>
                   </CardContent>
                 </Card>
 
@@ -1008,14 +935,16 @@ export function OtControlApp() {
                 </Field>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-[1fr_1fr_auto]">
-                <Field label="Numéro OBOTO" id="obotoNumber">
-                  <Input id="obotoNumber" value={form.obotoNumber} onChange={(event) => setField("obotoNumber", event.target.value)} />
-                </Field>
-                <Field label="Motif de non-saisie / clôture" id="closingReason">
-                  <Input id="closingReason" value={form.closingReason} onChange={(event) => setField("closingReason", event.target.value)} />
-                </Field>
-                <div className="flex items-end gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" variant="outline" onClick={() => (selected ? printRecord(selected) : setMessage("Créez ou sélectionnez une fiche avant d’imprimer."))}>
+                    <Printer className="mr-2 h-4 w-4" /> Imprimer
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => (selected ? mailRecord(selected) : setMessage("Créez ou sélectionnez une fiche avant l’envoi par mail."))}>
+                    <Mail className="mr-2 h-4 w-4" /> Envoyer par mail
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2">
                   <Button type="button" variant="outline" onClick={resetForm}>
                     <RotateCcw className="mr-2 h-4 w-4" /> Effacer
                   </Button>
@@ -1027,68 +956,48 @@ export function OtControlApp() {
             </CardContent>
           </Card>
         </form>
-
-        <aside className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Historique</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input className="pl-9" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Date, numéro, nom, statut, train..." />
-              </div>
-              <select
-                value={statusFilter}
-                onChange={(event) => setStatusFilter(event.target.value as "TOUS" | Status)}
-                className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-              >
-                <option value="TOUS">Tous les statuts</option>
-                {Object.entries(statusLabels).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-              <div className="max-h-[720px] space-y-3 overflow-auto pr-1">
-                {filtered.map((record) => (
-                  <button
-                    key={record.id}
-                    type="button"
-                    onClick={() => setSelectedId(record.id)}
-                    className="w-full rounded-md border bg-card p-3 text-left text-sm hover:bg-secondary"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-semibold">{record.id}</span>
-                      <StatusPill status={record.status} />
-                    </div>
-                    <p className="mt-2 text-muted-foreground">{new Date(record.createdAt).toLocaleString("fr-FR")}</p>
-                    <p className="font-medium">{record.objectType || "Objet"} - {record.lieu}</p>
-                    <p className="text-muted-foreground">
-                      {[record.trainOperator, record.trainNumber, record.destination].filter(Boolean).join(" - ") || "Train non renseigné"}
-                    </p>
-                    <p className="line-clamp-2 text-muted-foreground">{record.description}</p>
-                  </button>
-                ))}
-                {filtered.length === 0 ? <p className="text-sm text-muted-foreground">Aucune fiche trouvée.</p> : null}
-              </div>
-            </CardContent>
-          </Card>
-        </aside>
       </div>
+
+      <Card className="ot-no-print">
+        <CardHeader>
+          <CardTitle>Fiches enregistrées</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {records.length === 0 ? <p className="text-sm text-muted-foreground">Aucune fiche enregistrée.</p> : null}
+          {records.map((record) => (
+            <div key={record.id} className="flex flex-col gap-3 rounded-md border p-3 md:flex-row md:items-center md:justify-between">
+              <button type="button" className="text-left" onClick={() => setSelectedId(record.id)}>
+                <p className="font-semibold">{record.id}</p>
+                <p className="text-sm text-muted-foreground">
+                  {[new Date(record.createdAt).toLocaleString("fr-FR"), record.category, record.colorState, record.brand].filter(Boolean).join(" - ")}
+                </p>
+                <p className="line-clamp-1 text-sm text-muted-foreground">{record.description || "Sans description"}</p>
+              </button>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => setSelectedId(record.id)}>
+                  Voir
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => printRecord(record)}>
+                  <Printer className="mr-2 h-4 w-4" /> Imprimer
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => mailRecord(record)}>
+                  <Mail className="mr-2 h-4 w-4" /> Mail
+                </Button>
+                <Button type="button" variant="destructive" size="sm" onClick={() => deleteRecord(record.id)}>
+                  <Trash2 className="mr-2 h-4 w-4" /> Supprimer
+                </Button>
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
 
       {selected ? (
         <Card className="ot-print-area">
-          <CardHeader>
+          <CardHeader className="ot-detail-toolbar">
             <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
               <CardTitle>Fiche détail {selected.id}</CardTitle>
               <div className="flex flex-wrap gap-2 ot-no-print">
-                <Button type="button" variant="outline" onClick={() => mailRecord(selected)}>
-                  <Mail className="mr-2 h-4 w-4" /> Mail
-                </Button>
-                <Button type="button" variant="outline" onClick={() => printRecord(selected)}>
-                  <Printer className="mr-2 h-4 w-4" /> Imprimer / PDF
-                </Button>
                 <Button type="button" variant="outline" onClick={() => updateStatus(selected.id, "SAISI_OBOTO")}>
                   <CheckCircle2 className="mr-2 h-4 w-4" /> OBOTO OK
                 </Button>
@@ -1106,20 +1015,8 @@ export function OtControlApp() {
           </CardContent>
         </Card>
       ) : null}
+      <p className="pb-4 text-center text-xs text-muted-foreground">Créé par Sofiane Hamoum - V1.1 - 2026 © copyright</p>
     </div>
-  );
-}
-
-function Metric({ label, value, tone }: { label: string; value: number; tone?: "warning" | "success" }) {
-  return (
-    <Card>
-      <CardContent className="pt-6">
-        <p className="text-sm text-muted-foreground">{label}</p>
-        <p className={tone === "warning" ? "text-3xl font-semibold text-amber-700" : tone === "success" ? "text-3xl font-semibold text-emerald-700" : "text-3xl font-semibold"}>
-          {value}
-        </p>
-      </CardContent>
-    </Card>
   );
 }
 
@@ -1177,7 +1074,6 @@ function PrintableRecord({ record }: { record: OtRecord }) {
     ["Date de trouvaille", new Date(record.foundDate).toLocaleDateString("fr-FR")],
     ["Déposant", `${record.agentName} (${record.deposant})`],
     ["Service", record.service],
-    ["Lieu", record.lieu],
     ["Transporteur", record.trainOperator || "Non renseigné"],
     ["Numéro train / RER / TER", record.trainNumber || "Non renseigné"],
     ["Destination", record.destination || "Non renseignée"],
@@ -1185,16 +1081,42 @@ function PrintableRecord({ record }: { record: OtRecord }) {
     ["Voie / quai", record.platform || "Non renseigné"],
     ["Voiture", record.carNumber || "Non renseignée"],
     ["Place", record.seatNumber || "Non renseignée"],
-    ["Référence libre", record.trainRef || "Non renseignée"],
-    ["Type", record.objectType],
     ["Catégorie", record.category],
-    ["État", record.colorState],
+    ["Couleur", record.colorState],
     ["Marque", record.brand || "Non renseignée"],
-    ["Statut", statusLabels[record.status]],
-    ["Numéro OBOTO", record.obotoNumber || "À compléter"]
+    ["Statut", statusLabels[record.status]]
   ];
+  const designation = [
+    `Date : ${new Date(record.createdAt).toLocaleString("fr-FR")}`,
+    `Déposant : ${[record.agentName, record.deposant, record.service].filter(Boolean).join(" - ")}`,
+    [record.colorState, record.brand].filter(Boolean).join(" - "),
+    record.category ? `Catégorie : ${record.category}` : "",
+    ...(record.items?.length ? record.items.map((item, index) => `Objet ${index + 1} : ${itemSummary(item)}`) : []),
+    record.description,
+    record.documents.length ? `Documents : ${record.documents.join(", ")}${record.documentName ? ` - Nom : ${record.documentName}` : ""}` : "",
+    record.hasMoney ? `Somme déclarée : ${record.moneyAmount}` : "",
+    record.bankCardCount ? `Nombre de cartes bancaires : ${record.bankCardCount}` : "",
+    [
+      record.trainOperator,
+      record.trainNumber ? `train ${record.trainNumber}` : "",
+      record.destination ? `destination ${record.destination}` : "",
+      record.departureTime ? `départ ${record.departureTime}` : "",
+      record.platform,
+      record.carNumber ? `voiture ${record.carNumber}` : "",
+      record.seatNumber ? `place ${record.seatNumber}` : ""
+    ]
+      .filter(Boolean)
+      .join(" - ")
+  ].filter(Boolean);
+  const printLines = designation.join("\n").split(/\n+/).flatMap((line) => {
+    const chunks = line.match(/.{1,95}(?:\s|$)/g);
+    return chunks?.map((chunk) => chunk.trim()).filter(Boolean) ?? [line];
+  });
+  const receiptRequested = Boolean(record.receiptRequested);
+
   return (
-    <div className="space-y-5">
+    <>
+      <div className="ot-screen-detail space-y-5">
       <div className="flex items-start justify-between gap-4 border-b pb-4">
         <div className="flex items-center gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1252,23 +1174,13 @@ function PrintableRecord({ record }: { record: OtRecord }) {
           <p className="mt-2 text-sm text-muted-foreground">Aucun objet détaillé séparément.</p>
         )}
       </section>
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4">
         <section className="rounded-md border p-4">
           <h3 className="font-semibold">Documents / argent</h3>
           <p className="mt-2 text-sm">Documents : {record.documents.length ? record.documents.join(", ") : "Aucun renseigné"}</p>
           <p className="text-sm">Nom visible : {record.documentName || "Non renseigné"}</p>
           <p className="text-sm">Argent : {record.hasMoney ? record.moneyAmount : "Non"}</p>
-          <p className="text-sm">Motif / clôture : {record.closingReason || "Néant"}</p>
-        </section>
-        <section className="rounded-md border p-4">
-          <h3 className="font-semibold">Journal d’audit</h3>
-          <div className="mt-2 space-y-2 text-sm">
-            {record.audit.slice(0, 6).map((entry) => (
-              <p key={`${entry.at}-${entry.action}`}>
-                {new Date(entry.at).toLocaleString("fr-FR")} - {entry.action}
-              </p>
-            ))}
-          </div>
+          <p className="text-sm">Cartes bancaires : {record.bankCardCount || 0}</p>
         </section>
       </div>
       <section>
@@ -1292,6 +1204,74 @@ function PrintableRecord({ record }: { record: OtRecord }) {
           <img src={record.sigRde} alt="Signature RDE" className="mt-2 h-28 max-w-full object-contain" />
         </div>
       </section>
+      </div>
+
+      <article className="ot-souche-print" aria-label={`Souche de la fiche d'objet trouvé ${record.id}`}>
+        <div className="ot-souche-topbar" />
+        <header className="ot-souche-header">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/nicollin-logo.png" alt="Nicollin" className="ot-souche-logo" />
+          <div className="ot-souche-heading">
+            <h2>SOUCHE DE LA FICHE D&apos;OBJET TROUVÉ</h2>
+            <p>Gare centralisatrice Paris Nord</p>
+          </div>
+        </header>
+
+        <div className="ot-souche-fields">
+          <div className="ot-souche-manual-number">
+            <strong>Numéro OT</strong>
+            <span />
+          </div>
+          <PrintField label="Le" value={new Date(`${record.foundDate}T12:00:00`).toLocaleDateString("fr-FR")} short />
+          <PrintField label="Objet remis par" value={[record.agentName, record.deposant, record.service].filter(Boolean).join(" - ")} />
+          <PrintField label="À" value="Service des objets trouvés N'ASSIST - Paris Nord" />
+
+          <div className="ot-souche-receipt">
+            <span>Reçu demandé par le déposant</span>
+            <span>OUI</span><span className={`ot-checkbox ${receiptRequested ? "is-checked" : ""}`}>{receiptRequested ? "X" : ""}</span>
+            <span>NON</span><span className={`ot-checkbox ${receiptRequested ? "" : "is-checked"}`}>{receiptRequested ? "" : "X"}</span>
+          </div>
+
+          <section className="ot-souche-designation">
+            <h3><strong>Désignation</strong> de l&apos;objet, détail du contenu, montant de la somme, autres renseignements</h3>
+            <div className="ot-souche-writing-lines">
+              {Array.from({ length: 10 }, (_, index) => (
+                <div className="ot-souche-writing-line" key={index}>
+                  {printLines[index] ?? ""}
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="ot-souche-signatures">
+            <div>
+              <strong>Signature déposant</strong>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={record.sigDeposant} alt="Signature déposant" />
+            </div>
+            <div>
+              <strong>Signature RDE</strong>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={record.sigRde} alt="Signature RDE" />
+            </div>
+          </section>
+        </div>
+
+        <footer className="ot-souche-footer">
+          <div className="ot-souche-reference">Numéro OT : <span /></div>
+          <div className="ot-souche-stamp-label">cachet service</div>
+          <div className="ot-souche-stamp" />
+        </footer>
+      </article>
+    </>
+  );
+}
+
+function PrintField({ label, value, short = false }: { label: string; value: string; short?: boolean }) {
+  return (
+    <div className={`ot-souche-field ${short ? "is-short" : ""}`}>
+      <strong>{label}</strong>
+      <div>{value}</div>
     </div>
   );
 }

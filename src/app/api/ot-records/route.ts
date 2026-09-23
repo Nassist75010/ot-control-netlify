@@ -7,6 +7,7 @@ type OtPayload = {
   agentName: string;
   service: string;
   email?: string;
+  receiptRequested?: boolean;
   lieu: string;
   trainRef?: string;
   trainOperator?: string;
@@ -33,6 +34,7 @@ type OtPayload = {
   documentName?: string;
   hasMoney: boolean;
   moneyAmount?: string;
+  bankCardCount?: number;
   photos: string[];
   sigDeposant: string;
   sigRde: string;
@@ -89,7 +91,8 @@ export async function POST(request: Request) {
   if (!body.photos?.length) return badRequest("Photo obligatoire.");
   if (!body.sigDeposant || !body.sigRde) return badRequest("Les deux signatures sont obligatoires.");
   if (body.description.length > 6000) return badRequest("La description ne peut pas dépasser 6000 caractères.");
-  if (!body.deposant || !body.agentName || !body.service || !body.lieu || !body.foundDate || !body.objectType || !body.category || !body.colorState) {
+  if ((body.bankCardCount ?? 0) < 0 || (body.bankCardCount ?? 0) > 50) return badRequest("Le nombre de cartes bancaires est invalide.");
+  if (!body.deposant || !body.agentName || !body.service || !body.foundDate || !body.category || !body.colorState) {
     return badRequest("Des champs obligatoires sont manquants.");
   }
 
@@ -101,7 +104,8 @@ export async function POST(request: Request) {
       agentName: body.agentName,
       service: body.service,
       email: body.email || null,
-      lieu: body.lieu,
+      receiptRequested: Boolean(body.receiptRequested),
+      lieu: body.lieu || "Non renseigné",
       trainRef: body.trainRef || null,
       trainOperator: body.trainOperator || null,
       trainNumber: body.trainNumber || null,
@@ -111,7 +115,7 @@ export async function POST(request: Request) {
       carNumber: body.carNumber || null,
       seatNumber: body.seatNumber || null,
       foundDate: new Date(`${body.foundDate}T00:00:00.000Z`),
-      objectType: body.objectType,
+      objectType: body.objectType || "Objet trouvé",
       category: body.category,
       colorState: body.colorState,
       brand: body.brand || null,
@@ -121,6 +125,7 @@ export async function POST(request: Request) {
       documentName: body.documentName || null,
       hasMoney: body.hasMoney,
       moneyAmount: body.moneyAmount || null,
+      bankCardCount: Math.trunc(body.bankCardCount ?? 0),
       photos: body.photos,
       sigDeposant: body.sigDeposant,
       sigRde: body.sigRde,

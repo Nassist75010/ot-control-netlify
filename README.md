@@ -29,8 +29,8 @@ Dans Netlify :
 Variables à ajouter dans Netlify :
 
 ```bash
-DATABASE_URL="postgresql://..."
-DIRECT_URL="postgresql://..."
+DATABASE_URL="postgresql://user:password@host:5432/database"
+DIRECT_URL="postgresql://user:password@host:5432/database"
 OPENAI_API_KEY="sk-..."
 OPENAI_VISION_MODEL="your-model-name"
 ```
