@@ -32,7 +32,7 @@ Variables à ajouter dans Netlify :
 DATABASE_URL="postgresql://user:password@host:5432/database"
 DIRECT_URL="postgresql://user:password@host:5432/database"
 OPENAI_API_KEY="sk-..."
-OPENAI_VISION_MODEL="gpt-4o-mini"
+OPENAI_VISION_MODEL="your-model-name"
 ```
 
 Utiliser une base PostgreSQL externe comme Neon ou Supabase.
