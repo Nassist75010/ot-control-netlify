@@ -100,33 +100,46 @@ Format JSON:
 }
 `;
 
-  const response = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      model: process.env.OPENAI_VISION_MODEL ?? "gpt-4o-mini",
-      input: [
-        {
-          role: "user",
-          content: [
-            { type: "input_text", text: prompt },
-            ...photos.map((photo) => ({
-              type: "input_image",
-              image_url: photo
-            }))
-          ]
-        }
-      ]
-    })
-  });
+  const requestPayload = {
+    contents: [
+      {
+        role: "user",
+        parts: [
+          { text: prompt },
+          ...photos.map((photo) => ({
+            inlineData: {
+              mimeType: photo.mimeType,
+              data: photo.data
+            }
+          }))
+        ]
+      }
+    ],
+    generationConfig: {
+      temperature: 0.1,
+      responseMimeType: "application/json"
+    }
+  };
 
-  const data = await response.json();
-  if (!response.ok) {
-    return NextResponse.json({ error: data.error?.message ?? "Analyse photo impossible." }, { status: response.status });
-  }
+  let lastModelError = "Analyse photo impossible avec Gemini.";
+
+  for (const model of modelCandidates()) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(requestPayload)
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      const message = data.error?.message ?? lastModelError;
+      lastModelError = message;
+      if (shouldTryNextModel(response.status, message)) continue;
+
+      return NextResponse.json({ error: message }, { status: response.status });
+    }
 
     try {
       const text = data.candidates?.[0]?.content?.parts?.map((part: { text?: string }) => part.text ?? "").join("\n") ?? "";
