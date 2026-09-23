@@ -1241,7 +1241,7 @@ function PrintableRecord({ record }: { record: OtRecord }) {
           </div>
           <PrintField label="Le" value={new Date(`${record.foundDate}T12:00:00`).toLocaleDateString("fr-FR")} short />
           <PrintField label="Objet remis par" value={[record.agentName, record.deposant, record.service].filter(Boolean).join(" - ")} />
-          <PrintField label="À" value="Service des objets trouvés N'ASSIST - Paris Nord" />
+          <PrintField label="À" value={`Service des objets trouvés N'ASSIST - Paris Nord - Agent OT : ${record.agentName || "À compléter"}`} />
 
           <div className="ot-souche-receipt">
             <span>Reçu demandé par le déposant</span>
