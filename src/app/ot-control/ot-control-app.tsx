@@ -418,6 +418,7 @@ export function OtControlApp() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
+  const [analysisNotice, setAnalysisNotice] = useState(false);
   const [pendingPrintId, setPendingPrintId] = useState<string | null>(null);
   const deposantRef = useRef<HTMLCanvasElement>(null);
   const rdeRef = useRef<HTMLCanvasElement>(null);
@@ -448,6 +449,12 @@ export function OtControlApp() {
     }, 100);
     return () => window.clearTimeout(timeout);
   }, [pendingPrintId, selected?.id]);
+
+  useEffect(() => {
+    if (!analysisNotice) return;
+    const timeout = window.setTimeout(() => setAnalysisNotice(false), 2600);
+    return () => window.clearTimeout(timeout);
+  }, [analysisNotice]);
 
   const setField = (field: keyof typeof form, value: string | boolean | string[] | OtItem[]) => setForm((current) => ({ ...current, [field]: value }));
 
@@ -509,6 +516,7 @@ export function OtControlApp() {
         documentName: analysis.documentName || current.documentName
       }));
       setMessage(`Reconnaissance terminée${analysis.confidence ? `, confiance ${analysis.confidence}` : ""}. Vérifiez et corrigez avant d’enregistrer.`);
+      setAnalysisNotice(true);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Analyse photo impossible.");
     } finally {
@@ -666,6 +674,15 @@ export function OtControlApp() {
 
   return (
     <div className="space-y-4">
+      {analysisNotice ? (
+        <div className="fixed left-1/2 top-6 z-50 flex -translate-x-1/2 items-center gap-3 rounded-xl border bg-background px-5 py-4 shadow-xl" role="status" aria-live="polite">
+          <CheckCircle2 className="h-7 w-7 shrink-0 text-emerald-600" />
+          <div>
+            <p className="font-semibold">Objet identifié avec succès</p>
+            <p className="text-sm text-muted-foreground">Vérifiez les informations avant de valider.</p>
+          </div>
+        </div>
+      ) : null}
       <datalist id="brand-options">
         {presets.brands.map((brand) => (
           <option key={brand} value={brand} />
@@ -949,7 +966,7 @@ export function OtControlApp() {
                     <RotateCcw className="mr-2 h-4 w-4" /> Effacer
                   </Button>
                   <Button type="submit" disabled={saving}>
-                    <Save className="mr-2 h-4 w-4" /> {saving ? "Enregistrement..." : "Créer"}
+                    <Save className="mr-2 h-4 w-4" /> {saving ? "Enregistrement..." : "Valider"}
                   </Button>
                 </div>
               </div>
