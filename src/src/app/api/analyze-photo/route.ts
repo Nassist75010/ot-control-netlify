@@ -80,7 +80,7 @@ Format JSON:
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
-      model: process.env.OPENAI_VISION_MODEL ?? "gpt-4o-mini",
+      model: process.env.OPENAI_VISION_MODEL,
       input: [
         {
           role: "user",
